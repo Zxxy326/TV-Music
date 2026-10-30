@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -79,21 +78,22 @@ fun UpdateCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("在线更新", style = TvType.label, color = TvColors.TextPrimary)
-                    Text(
-                        "当前 v${store.currentVersionName}（${store.currentVersionCode}）",
-                        style = TvType.caption,
-                        color = TvColors.TextSecondary,
-                    )
-                }
+                Text("在线更新", style = TvType.label, color = TvColors.TextPrimary)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "v${store.currentVersionName}（${store.currentVersionCode}）",
+                    style = TvType.caption,
+                    color = TvColors.TextSecondary,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(12.dp))
                 Text(
                     statusLabel(state),
                     style = TvType.caption,
                     color = statusColor(state, accent),
                     maxLines = 1,
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.weight(1f))
                 ActionChip(
                     label = if (state is UpdateState.Checking) "检查中…" else "检查更新",
                     group = group,
