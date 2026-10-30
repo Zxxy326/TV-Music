@@ -1,0 +1,507 @@
+package tv.music.player.ui.settings
+
+import android.content.Context
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Text
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import tv.music.player.BuildConfig
+import tv.music.player.core.crash.CrashLogger
+import tv.music.player.core.focus.rememberTvFocusGroup
+import tv.music.player.core.scale.LocalTvScale
+import tv.music.player.core.settings.AppSettings
+import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.theme.TvColors
+import tv.music.player.core.theme.TvType
+import tv.music.player.ui.components.CapsuleHostState
+import tv.music.player.ui.components.InfoRow
+import tv.music.player.ui.components.KeyHintBar
+import tv.music.player.ui.components.LocalCapsuleHost
+import tv.music.player.ui.components.ScreenHeader
+import tv.music.player.ui.components.SettingRow
+import tv.music.player.ui.components.TvBackdrop
+import tv.music.player.ui.components.TvSafeArea
+import tv.music.player.ui.navigation.LocalActiveRoute
+import tv.music.player.ui.navigation.TvRoute
+
+private sealed interface SettingEntry {
+    val key: String
+    val title: String
+    val subtitle: String
+
+    data class Toggle(
+        override val key: String,
+        override val title: String,
+        override val subtitle: String,
+        val checked: Boolean,
+        val onToggle: () -> Unit,
+    ) : SettingEntry
+
+    data class Choice(
+        override val key: String,
+        override val title: String,
+        override val subtitle: String,
+        val value: String,
+        val onNext: () -> Unit,
+        val onPrevious: () -> Unit,
+    ) : SettingEntry
+
+    data class Action(
+        override val key: String,
+        override val title: String,
+        override val subtitle: String,
+        val value: String,
+        val onClick: () -> Unit,
+    ) : SettingEntry
+
+    data class Info(
+        override val key: String,
+        override val title: String,
+        override val subtitle: String,
+        val value: String,
+    ) : SettingEntry
+}
+
+@Composable
+fun SettingsGroupScreen(
+    groupId: String,
+    settings: AppSettings,
+    settingsRepository: SettingsRepository,
+    onBack: () -> Unit,
+) {
+    val info = SettingsGroups.byId(groupId)
+    val group = rememberTvFocusGroup("settings-group:$groupId")
+    val capsule = LocalCapsuleHost.current
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scale = LocalTvScale.current
+    val entries = buildEntries(groupId, settings, settingsRepository, scope, capsule, context, scale)
+    val firstFocusable = entries.firstOrNull { it !is SettingEntry.Info }?.key
+
+    val activeRoute = LocalActiveRoute.current
+    val isActive = activeRoute == TvRoute.SettingsGroup.route
+    LaunchedEffect(isActive) {
+        if (isActive) group.restore("item:${firstFocusable.orEmpty()}")
+    }
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(windowFocused) {
+        if (windowFocused && isActive) group.restore("item:${firstFocusable.orEmpty()}")
+    }
+
+    TvSafeArea {
+        Column(Modifier.fillMaxSize()) {
+            ScreenHeader(
+                title = info.title,
+                subtitle = info.subtitle,
+                group = group,
+                onBack = onBack,
+                trailing = {
+                    Text(
+                        "${entries.count { it !is SettingEntry.Info }} 项可调",
+                        style = TvType.caption,
+                        color = TvColors.TextTertiary,
+                    )
+                },
+            )
+            Spacer(Modifier.height(14.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 88.dp),
+            ) {
+                items(entries, key = { it.key }) { entry ->
+                    when (entry) {
+                        is SettingEntry.Toggle -> SettingRow(
+                            title = entry.title,
+                            subtitle = entry.subtitle,
+                            group = group,
+                            focusKey = "item:${entry.key}",
+                            onClick = entry.onToggle,
+                            toggle = entry.checked,
+                        )
+                        is SettingEntry.Choice -> SettingRow(
+                            title = entry.title,
+                            subtitle = entry.subtitle,
+                            group = group,
+                            focusKey = "item:${entry.key}",
+                            onClick = entry.onNext,
+                            valueText = entry.value,
+                            onKeyEvent = { event ->
+                                if (event.type != KeyEventType.KeyDown) {
+                                    false
+                                } else {
+                                    when (event.key) {
+                                        Key.DirectionLeft -> {
+                                            entry.onPrevious()
+                                            true
+                                        }
+                                        Key.DirectionRight -> {
+                                            entry.onNext()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                }
+                            },
+                        )
+                        is SettingEntry.Action -> SettingRow(
+                            title = entry.title,
+                            subtitle = entry.subtitle,
+                            group = group,
+                            focusKey = "item:${entry.key}",
+                            onClick = entry.onClick,
+                            valueText = entry.value,
+                            showChevron = true,
+                        )
+                        is SettingEntry.Info -> InfoRow(
+                            title = entry.title,
+                            value = entry.value,
+                            subtitle = entry.subtitle,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            KeyHintBar(
+                hints = listOf(
+                    "OK" to "切换 / 执行",
+                    "← →" to "调整选项",
+                    "返回" to "上一级",
+                    "长按返回" to "回到首页",
+                )
+            )
+            Spacer(Modifier.height(96.dp))
+        }
+    }
+}
+
+private fun buildEntries(
+    groupId: String,
+    settings: AppSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+    capsule: CapsuleHostState,
+    context: Context,
+    scale: Float,
+): List<SettingEntry> {
+
+    fun save(message: String, block: suspend () -> Unit) {
+        scope.launch {
+            runCatching { block() }
+                .onSuccess { capsule.show(message) }
+                .onFailure { capsule.show("保存失败：${it.message.orEmpty()}") }
+        }
+    }
+
+    return when (groupId) {
+        "appearance" -> listOf(
+            SettingEntry.Choice(
+                key = "accent",
+                title = "主题色",
+                subtitle = "跟随封面主色或固定主题色，切换即时生效",
+                value = settings.accentMode.label,
+                onNext = {
+                    val next = settings.accentMode.next()
+                    save("主题色：${next.label}") { repository.setAccentMode(next) }
+                },
+                onPrevious = {
+                    val previous = settings.accentMode.previous()
+                    save("主题色：${previous.label}") { repository.setAccentMode(previous) }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "animations",
+                title = "界面动画",
+                subtitle = "焦点缩放、页面转场与主题色过渡",
+                checked = settings.animationsEnabled,
+                onToggle = {
+                    save(if (settings.animationsEnabled) "动画已关闭" else "动画已开启") {
+                        repository.setAnimationsEnabled(!settings.animationsEnabled)
+                    }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "blur",
+                title = "模糊背景",
+                subtitle = "播放页封面模糊铺底；关闭可省 GPU",
+                checked = settings.blurBackground,
+                onToggle = {
+                    save(if (settings.blurBackground) "已切纯色背景" else "已开启模糊背景") {
+                        repository.setBlurBackground(!settings.blurBackground)
+                    }
+                },
+            ),
+            SettingEntry.Choice(
+                key = "lyricSize",
+                title = "歌词字号",
+                subtitle = "当前行字号 5 档中的 3 档预览",
+                value = settings.lyricSize.label,
+                onNext = {
+                    val next = settings.lyricSize.next()
+                    save("歌词字号：${next.label}") { repository.setLyricSize(next) }
+                },
+                onPrevious = {
+                    val previous = settings.lyricSize.previous()
+                    save("歌词字号：${previous.label}") { repository.setLyricSize(previous) }
+                },
+            ),
+            SettingEntry.Action(
+                key = "styleWheel",
+                title = "歌词样式轮盘",
+                subtitle = "11 种样式的实时预览与切换",
+                value = "M2",
+                onClick = { capsule.show("歌词样式轮盘将在 M2 接入") },
+            ),
+            SettingEntry.Action(
+                key = "playerLayout",
+                title = "播放页布局",
+                subtitle = "全屏歌词 / 左封面右歌词",
+                value = "布局 A · M0",
+                onClick = { capsule.show("布局 B（左封面右歌词）将在 M2 接入") },
+            ),
+        )
+
+        "playback" -> listOf(
+            SettingEntry.Choice(
+                key = "quality",
+                title = "音质",
+                subtitle = "标准 / 高音质 / 无损，取流失败自动降级",
+                value = settings.quality.label,
+                onNext = {
+                    val next = settings.quality.next()
+                    save("音质：${next.label}") { repository.setQuality(next) }
+                },
+                onPrevious = {
+                    val previous = settings.quality.previous()
+                    save("音质：${previous.label}") { repository.setQuality(previous) }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "gapless",
+                title = "无缝播放",
+                subtitle = "队列内歌曲之间不插入静音",
+                checked = settings.gaplessPlayback,
+                onToggle = {
+                    save(if (settings.gaplessPlayback) "已关闭无缝播放" else "已开启无缝播放") {
+                        repository.setGapless(!settings.gaplessPlayback)
+                    }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "fade",
+                title = "淡入淡出",
+                subtitle = "播放 / 暂停与切歌的短淡入淡出",
+                checked = settings.fadeInOut,
+                onToggle = {
+                    save(if (settings.fadeInOut) "已关闭淡入淡出" else "已开启淡入淡出") {
+                        repository.setFadeInOut(!settings.fadeInOut)
+                    }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "audioFocus",
+                title = "音频焦点",
+                subtitle = "被其他应用抢占时自动暂停",
+                checked = settings.audioFocus,
+                onToggle = {
+                    save(if (settings.audioFocus) "已关闭音频焦点" else "已开启音频焦点") {
+                        repository.setAudioFocus(!settings.audioFocus)
+                    }
+                },
+            ),
+        )
+
+        "sources" -> listOf(
+            SettingEntry.Info(
+                key = "installed",
+                title = "已安装脚本",
+                value = "0 个",
+                subtitle = "导入、启停与排序在 M1 接入",
+            ),
+            SettingEntry.Info(
+                key = "builtin",
+                title = "内置脚本",
+                value = "全豆要聚合 v9.3",
+                subtitle = "首次启动加载 · 开源构建默认不带脚本",
+            ),
+            SettingEntry.Action(
+                key = "market",
+                title = "音源市场",
+                subtitle = "远程清单、URL 安装、sha256 校验",
+                value = "M4",
+                onClick = { capsule.show("音源市场将在 M4 接入") },
+            ),
+            SettingEntry.Action(
+                key = "usb",
+                title = "从 U 盘导入",
+                subtitle = "扫描 /mnt/usb/*.js",
+                value = "M1",
+                onClick = { capsule.show("U 盘导入脚本将在 M1 接入") },
+            ),
+            SettingEntry.Action(
+                key = "test",
+                title = "源测试",
+                subtitle = "对每个源跑一次搜索与取流，显示延迟",
+                value = "M1",
+                onClick = { capsule.show("源测试将在 M1 接入") },
+            ),
+        )
+
+        "account" -> listOf(
+            SettingEntry.Action(
+                key = "qq",
+                title = "QQ 音乐",
+                subtitle = "TV 显示二维码，手机扫码确认",
+                value = "扫码 · M3",
+                onClick = { capsule.show("QQ 扫码登录将在 M3 接入") },
+            ),
+            SettingEntry.Action(
+                key = "netease",
+                title = "网易云音乐",
+                subtitle = "unikey 轮询登录，写 Cookie 到加密存储",
+                value = "扫码 · M3",
+                onClick = { capsule.show("网易云扫码登录将在 M3 接入") },
+            ),
+            SettingEntry.Action(
+                key = "cookie",
+                title = "Cookie 导入",
+                subtitle = "U 盘 cookie.txt 或手机伴侣粘贴",
+                value = "M3",
+                onClick = { capsule.show("Cookie 导入将在 M3 接入") },
+            ),
+        )
+
+        "local" -> listOf(
+            SettingEntry.Action(
+                key = "usbScan",
+                title = "扫描 USB / 外接盘",
+                subtitle = "MediaStore + SAF 递归扫描，增量索引",
+                value = "M4",
+                onClick = { capsule.show("USB 扫描将在 M4 接入") },
+            ),
+            SettingEntry.Action(
+                key = "smb",
+                title = "添加 SMB 共享",
+                subtitle = "jcifs-ng，凭据用手机伴侣录入",
+                value = "M4",
+                onClick = { capsule.show("SMB 挂载将在 M4 接入") },
+            ),
+            SettingEntry.Info(
+                key = "lastScan",
+                title = "上次扫描",
+                value = "尚未扫描",
+                subtitle = "索引保存在 Room 数据库",
+            ),
+        )
+
+        "companion" -> listOf(
+            SettingEntry.Toggle(
+                key = "enabled",
+                title = "手机伴侣",
+                subtitle = "局域网 HTTP + 配对码，手机输入同步到 TV",
+                checked = settings.companionEnabled,
+                onToggle = {
+                    save(if (settings.companionEnabled) "手机伴侣已关闭" else "手机伴侣已开启（M3 提供配对页）") {
+                        repository.setCompanionEnabled(!settings.companionEnabled)
+                    }
+                },
+            ),
+            SettingEntry.Info(
+                key = "pairing",
+                title = "配对码",
+                value = if (settings.companionEnabled) "启动后显示" else "未开启",
+                subtitle = "4 位数字，30 天有效",
+            ),
+            SettingEntry.Info(
+                key = "address",
+                title = "局域网地址",
+                value = "http://<电视 IP>:8080",
+                subtitle = "手机与 TV 需在同一网段",
+            ),
+        )
+
+        "about" -> listOf(
+            SettingEntry.Info(
+                key = "version",
+                title = "版本",
+                value = "${BuildConfig.VERSION_NAME} · M0",
+                subtitle = "骨架与焦点系统",
+            ),
+            SettingEntry.Info(
+                key = "scale",
+                title = "界面缩放",
+                value = "%.2f×".format(scale),
+                subtitle = "960×540dp 基准 · 4K 额外 1.15× 补偿",
+            ),
+            SettingEntry.Info(
+                key = "performance",
+                title = "性能红线",
+                value = "≥55fps · <350MB",
+                subtitle = "1080p 均值 58fps；4K ≥45fps",
+            ),
+            SettingEntry.Action(
+                key = "license",
+                title = "开源许可",
+                value = "GPL-3.0",
+                subtitle = "源码随仓库发布，保留上游署名",
+                onClick = { capsule.show("GPL-3.0 · 完整许可见仓库 LICENSE") },
+            ),
+            SettingEntry.Action(
+                key = "upstream",
+                title = "上游署名",
+                value = "PixelPlayer",
+                subtitle = "r3n011/XiangsuPlayerHQ · GPL-3.0",
+                onClick = { capsule.show("上游：r3n011/XiangsuPlayerHQ（GPL-3.0）") },
+            ),
+            SettingEntry.Action(
+                key = "crash",
+                title = "崩溃日志",
+                value = "查看",
+                subtitle = CrashLogger.latestLog(context)?.name ?: "暂无崩溃记录",
+                onClick = {
+                    val directory = CrashLogger.logDirectory(context).absolutePath
+                    capsule.show("日志目录：$directory", durationMs = 3_800L)
+                },
+            ),
+        )
+
+        else -> listOf(
+            SettingEntry.Info(
+                key = "unknown",
+                title = "未知分组",
+                value = groupId,
+                subtitle = "请返回上一级重新选择",
+            )
+        )
+    }
+}
+
+private inline fun <reified T : Enum<T>> T.next(): T {
+    val values = enumValues<T>()
+    return values[(ordinal + 1) % values.size]
+}
+
+private inline fun <reified T : Enum<T>> T.previous(): T {
+    val values = enumValues<T>()
+    return values[(ordinal - 1 + values.size) % values.size]
+}

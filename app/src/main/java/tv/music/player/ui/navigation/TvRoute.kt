@@ -1,0 +1,11 @@
+package tv.music.player.ui.navigation
+
+sealed class TvRoute(val route: String) {
+    data object Home : TvRoute("home")
+    data object Search : TvRoute("search")
+    data object Player : TvRoute("player")
+    data object Settings : TvRoute("settings")
+    data object SettingsGroup : TvRoute("settings/{groupId}") {
+        fun of(groupId: String): String = "settings/$groupId"
+    }
+}

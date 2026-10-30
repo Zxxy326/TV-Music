@@ -1,0 +1,46 @@
+TV Music
+Copyright (C) 2026 TV Music contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+参考项目
+--------
+XiangsuPlayerHQ (https://github.com/r3n011/XiangsuPlayerHQ)
+本项目在交互与架构设计上参考了该项目（GPL-3.0），未直接包含其源代码或资源。
+
+第三方组件
+----------
+本项目的 APK 以二进制依赖形式包含以下组件，均使用 Apache License 2.0：
+
+- AndroidX / Jetpack Compose / Compose for TV / Navigation / Lifecycle /
+  DataStore / Palette / Core SplashScreen
+  Copyright The Android Open Source Project
+  https://developer.android.com/jetpack
+
+- Kotlin 标准库与 kotlinx.coroutines
+  Copyright JetBrains s.r.o.
+  https://kotlinlang.org
+
+- Android Gradle Plugin / Gradle（仅构建期使用）
+  Copyright The Android Open Source Project / Gradle Inc.
+
+- Material Icons Extended（图片资源）
+  Copyright Google LLC
+  https://fonts.google.com/icons
+
+音源与内容
+----------
+仓库与 APK 不包含任何音源插件、LX 脚本、音频文件或歌词文件。
+M0 页面中的曲名、歌手、榜单为演示占位数据，不对应可播放内容。
+用户后续自行导入的第三方脚本与内容，需自行确认其授权与合规性。

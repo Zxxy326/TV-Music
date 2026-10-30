@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tv_background">#0A0C10</color>
+    <color name="tv_accent">#35D6C4</color>
+    <color name="tv_icon_background">#12151C</color>
+</resources>
