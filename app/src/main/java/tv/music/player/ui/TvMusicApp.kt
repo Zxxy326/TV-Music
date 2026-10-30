@@ -103,6 +103,7 @@ fun TvMusicApp() {
                         companionBridge = container.companionBridge,
                         companionServer = container.companion,
                         library = container.library,
+                        downloads = container.downloads,
                         lxEngine = container.lxEngine,
                         lxFileStore = container.lxFileStore,
                         lyricsRepository = container.lyrics,

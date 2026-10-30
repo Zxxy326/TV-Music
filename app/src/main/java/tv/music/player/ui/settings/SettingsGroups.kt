@@ -50,7 +50,7 @@ object SettingsGroups {
             id = "account",
             title = "账号",
             subtitle = "QQ 音乐 · 网易云",
-            description = "TV 端只做扫码与 Cookie 两种入口，不提供手机号/密码输入。M3 接入登录与歌单同步。",
+            description = "TV 端只做扫码与 Cookie 两种入口，不提供手机号/密码输入。M3b2 接入登录与歌单同步。",
             icon = Icons.Rounded.AccountCircle,
             highlights = listOf("QQ 扫码", "网易云扫码", "Cookie 导入"),
         ),

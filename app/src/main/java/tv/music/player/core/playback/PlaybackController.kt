@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 data class PlayerSnapshot(
     val track: DemoTrack = DemoCatalog.tracks.first(),
@@ -44,6 +46,7 @@ data class PlayerSnapshot(
 class PlaybackController(
     context: Context,
     private val resolveUrl: suspend (track: DemoTrack, preferredQuality: String?) -> String?,
+    private val localPath: (DemoTrack) -> String? = { null },
     private val onTrackStarted: (DemoTrack) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
@@ -59,9 +62,12 @@ class PlaybackController(
     private var previewRetryDone = false
 
     private val mediaSourceFactory = DefaultMediaSourceFactory(
-        DefaultHttpDataSource.Factory()
-            .setUserAgent(HTTP_UA)
-            .setAllowCrossProtocolRedirects(true)
+        DefaultDataSource.Factory(
+            appContext,
+            DefaultHttpDataSource.Factory()
+                .setUserAgent(HTTP_UA)
+                .setAllowCrossProtocolRedirects(true)
+        )
     )
     val player: ExoPlayer = ExoPlayer.Builder(appContext, mediaSourceFactory).build()
 
@@ -90,7 +96,7 @@ class PlaybackController(
                         _state.value = snapshot.copy(buffering = true)
                     Player.STATE_READY -> {
                         val duration = player.duration.takeIf { it > 0L && it != C.TIME_UNSET }
-                        if (!previewRetryDone && duration != null &&
+                        if (localFileFor(snapshot.track) == null && !previewRetryDone && duration != null &&
                             snapshot.track.durationMs > 0L && duration < snapshot.track.durationMs * 0.75
                         ) {
                             previewRetryDone = true
@@ -137,14 +143,19 @@ class PlaybackController(
         resolveJob?.cancel()
         previewRetryDone = false
         stopTicker()
+        val localFile = localFileFor(track)
         _state.value = _state.value.copy(
             track = track,
             queue = queue,
             positionMs = 0L,
             resolvedDurationMs = 0L,
-            buffering = track.isOnline,
+            buffering = track.isOnline && localFile == null,
             isPlaying = false,
         )
+        if (localFile != null) {
+            startLocalFile(track, localFile)
+            return
+        }
         if (!track.isOnline) {
             player.stop()
             player.clearMediaItems()
@@ -179,8 +190,28 @@ class PlaybackController(
     }
 
     private fun startMedia(track: DemoTrack, url: String) {
-        val item = MediaItem.Builder()
-            .setUri(url)
+        player.setMediaItem(buildMediaItem(track, url))
+        player.prepare()
+        player.playWhenReady = true
+        _state.value = _state.value.copy(buffering = false)
+        startOnlineTicker()
+        onTrackStarted(track)
+    }
+
+    private fun startLocalFile(track: DemoTrack, file: File) {
+        player.stop()
+        player.clearMediaItems()
+        player.setMediaItem(buildMediaItem(track, Uri.fromFile(file).toString()))
+        player.prepare()
+        player.playWhenReady = true
+        _state.value = _state.value.copy(buffering = false, isPlaying = true)
+        startOnlineTicker()
+        onTrackStarted(track)
+    }
+
+    private fun buildMediaItem(track: DemoTrack, uri: String): MediaItem =
+        MediaItem.Builder()
+            .setUri(uri)
             .setMediaId(track.onlineSongId)
             .setMediaMetadata(
                 androidx.media3.common.MediaMetadata.Builder()
@@ -193,13 +224,10 @@ class PlaybackController(
                     .build()
             )
             .build()
-        player.setMediaItem(item)
-        player.prepare()
-        player.playWhenReady = true
-        _state.value = _state.value.copy(buffering = false)
-        startOnlineTicker()
-        onTrackStarted(track)
-    }
+
+    private fun localFileFor(track: DemoTrack): File? =
+        localPath(track)?.let { path -> runCatching { File(path) }.getOrNull() }
+            ?.takeIf { it.isFile && it.length() > 0L }
 
     fun next() {
         val snapshot = _state.value

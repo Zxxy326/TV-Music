@@ -483,22 +483,22 @@ private fun buildEntries(
                 key = "qq",
                 title = "QQ 音乐",
                 subtitle = "TV 显示二维码，手机扫码确认",
-                value = "扫码 · M3",
-                onClick = { capsule.show("QQ 扫码登录将在 M3 接入") },
+                value = "扫码 · M3b2",
+                onClick = { capsule.show("QQ 扫码登录将在 M3b2 接入") },
             ),
             SettingEntry.Action(
                 key = "netease",
                 title = "网易云音乐",
                 subtitle = "unikey 轮询登录，写 Cookie 到加密存储",
-                value = "扫码 · M3",
-                onClick = { capsule.show("网易云扫码登录将在 M3 接入") },
+                value = "扫码 · M3b2",
+                onClick = { capsule.show("网易云扫码登录将在 M3b2 接入") },
             ),
             SettingEntry.Action(
                 key = "cookie",
                 title = "Cookie 导入",
                 subtitle = "U 盘 cookie.txt 或手机伴侣粘贴",
-                value = "M3",
-                onClick = { capsule.show("Cookie 导入将在 M3 接入") },
+                value = "M3b2",
+                onClick = { capsule.show("Cookie 导入将在 M3b2 接入") },
             ),
         )
 
@@ -531,7 +531,7 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M3a",
+                value = "${BuildConfig.VERSION_NAME} · M3b1",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

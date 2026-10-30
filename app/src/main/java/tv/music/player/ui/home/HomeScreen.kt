@@ -262,7 +262,7 @@ fun HomeScreen(
                     onFavorites = { navController.navigate(TvRoute.Favorites.route) },
                     onRecent = { navController.navigate(TvRoute.Recent.route) },
                     onSources = { navController.navigate(TvRoute.SettingsGroup.of("sources")) },
-                    onPlaceholder = { capsule.show("本地音乐将在 M4 接入") },
+                    onLocal = { navController.navigate(TvRoute.Downloads.route) },
                 )
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(
@@ -410,7 +410,7 @@ private fun HomeHeader(
                         .background(accent)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("TV MUSIC · M3a", style = TvType.tracking, color = accent)
+                Text("TV MUSIC · M3b1", style = TvType.tracking, color = accent)
             }
             Spacer(Modifier.height(6.dp))
             Text("$greeting，今晚听点什么？", style = TvType.display, color = TvColors.TextPrimary)
@@ -468,7 +468,7 @@ private fun QuickRow(
     onFavorites: () -> Unit,
     onRecent: () -> Unit,
     onSources: () -> Unit,
-    onPlaceholder: () -> Unit,
+    onLocal: () -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth(),
@@ -503,7 +503,7 @@ private fun QuickRow(
             label = "本地音乐",
             group = group,
             focusKey = "quick:3",
-            onClick = onPlaceholder,
+            onClick = onLocal,
             modifier = Modifier.width(158.dp),
         )
         QuickTile(

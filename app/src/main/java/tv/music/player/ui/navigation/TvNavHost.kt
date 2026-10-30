@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
+import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
@@ -23,6 +24,7 @@ import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.ui.home.HomeScreen
+import tv.music.player.ui.library.DownloadsScreen
 import tv.music.player.ui.library.LibraryScreen
 import tv.music.player.ui.player.PlayerScreen
 import tv.music.player.ui.search.SearchScreen
@@ -40,6 +42,7 @@ fun TvNavHost(
     companionBridge: CompanionBridge,
     companionServer: CompanionServer,
     library: LibraryStore,
+    downloads: DownloadStore,
     lxEngine: LxJsEngine,
     lxFileStore: LxFileStore,
     lyricsRepository: LyricsRepository,
@@ -75,6 +78,7 @@ fun TvNavHost(
                 settingsRepository = settingsRepository,
                 lyricsRepository = lyricsRepository,
                 library = library,
+                downloads = downloads,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -98,6 +102,13 @@ fun TvNavHost(
                 subtitle = "开始播放后自动记录 · 最多保留 30 首",
                 emptyText = "还没有播放记录。去搜索并播放一首歌吧。",
                 tracks = recent,
+                playback = playback,
+                navController = navController,
+            )
+        }
+        composable(TvRoute.Downloads.route) {
+            DownloadsScreen(
+                downloads = downloads,
                 playback = playback,
                 navController = navController,
             )

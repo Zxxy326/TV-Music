@@ -49,6 +49,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Forward10
@@ -105,6 +107,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import tv.music.player.core.download.DownloadEntry
+import tv.music.player.core.download.DownloadStatus
+import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
@@ -146,11 +151,14 @@ fun PlayerScreen(
     settingsRepository: SettingsRepository,
     lyricsRepository: LyricsRepository,
     library: LibraryStore,
+    downloads: DownloadStore,
     onBack: () -> Unit,
 ) {
     val snapshot by playback.state.collectAsStateWithLifecycle()
     val favorites by library.favorites.collectAsStateWithLifecycle()
     val isFavorite = favorites.any { it.libraryKey() == snapshot.track.libraryKey() }
+    val downloadEntries by downloads.entries.collectAsStateWithLifecycle()
+    val downloadEntry = downloadEntries.firstOrNull { it.key == snapshot.track.libraryKey() }
     val cover = rememberCoverArt()
     val accent = LocalTvAccent.current
     val capsule = LocalCapsuleHost.current
@@ -215,6 +223,35 @@ fun PlayerScreen(
     fun toggleFavorite() {
         val added = library.toggleFavorite(snapshot.track)
         capsule.show(if (added) "已收藏：${snapshot.track.title}" else "已取消收藏")
+    }
+
+    fun handleDownload() {
+        val track = snapshot.track
+        if (!track.isOnline) {
+            capsule.show("演示曲目没有可下载的音源")
+            return
+        }
+        when (downloads.entryFor(track)?.status) {
+            null -> {
+                downloads.enqueue(track)
+                capsule.show("开始下载：${track.title}")
+            }
+            DownloadStatus.FAILED -> {
+                downloads.cancel(track)
+                downloads.enqueue(track)
+                capsule.show("重新下载：${track.title}")
+            }
+            DownloadStatus.DONE -> capsule.show("已下载 · 在首页「本地音乐」离线播放")
+            DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING -> {
+                val entry = downloads.entryFor(track)
+                val percent = if (entry != null && entry.totalBytes > 0L) {
+                    " ${(entry.progress * 100).toInt()}%"
+                } else {
+                    ""
+                }
+                capsule.show("正在下载$percent：${track.title}")
+            }
+        }
     }
 
     fun openLyricsPanel() {
@@ -483,9 +520,11 @@ fun PlayerScreen(
                 snapshot = snapshot,
                 settings = settings,
                 favorite = isFavorite,
+                download = downloadEntry,
                 group = group,
                 playback = playback,
                 onToggleFavorite = ::toggleFavorite,
+                onDownload = ::handleDownload,
                 onOpenQueue = { queueVisible = true },
                 onOpenLyrics = {
                     controlsVisible = false
@@ -1903,9 +1942,11 @@ private fun ControlsPanel(
     snapshot: PlayerSnapshot,
     settings: AppSettings,
     favorite: Boolean,
+    download: DownloadEntry?,
     group: TvFocusGroup,
     playback: PlaybackController,
     onToggleFavorite: () -> Unit,
+    onDownload: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenLyrics: () -> Unit,
     onClose: () -> Unit,
@@ -1988,6 +2029,25 @@ private fun ControlsPanel(
                 horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (snapshot.track.isOnline) {
+                    TransportButton(
+                        icon = if (download?.status == DownloadStatus.DONE) {
+                            Icons.Rounded.DownloadDone
+                        } else {
+                            Icons.Rounded.Download
+                        },
+                        contentDescription = when (download?.status) {
+                            null -> "下载"
+                            DownloadStatus.QUEUED -> "准备下载"
+                            DownloadStatus.DOWNLOADING -> "正在下载"
+                            DownloadStatus.DONE -> "已下载"
+                            DownloadStatus.FAILED -> "重新下载"
+                        },
+                        group = group,
+                        focusKey = "controls:download",
+                        onClick = onDownload,
+                    )
+                }
                 TransportButton(
                     icon = if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     contentDescription = if (favorite) "取消收藏" else "收藏",

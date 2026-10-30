@@ -16,6 +16,7 @@ import okhttp3.Request
 import kotlinx.coroutines.launch
 import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
+import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
@@ -48,9 +49,14 @@ class AppContainer(context: Context) {
     )
 
     val library = LibraryStore(appContext)
+    val downloads = DownloadStore(appContext) { track ->
+        val quality = settings.settings.first().quality.lxQuality
+        resolveStreamUrl(track, quality)
+    }
     val playback = PlaybackController(
         context = appContext,
         resolveUrl = ::resolveStreamUrl,
+        localPath = downloads::pathFor,
         onTrackStarted = library::recordPlayed,
     )
     val companionBridge = CompanionBridge()
