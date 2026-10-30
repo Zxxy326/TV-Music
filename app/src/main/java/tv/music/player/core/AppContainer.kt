@@ -9,10 +9,13 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import kotlinx.coroutines.launch
+import tv.music.player.core.companion.CompanionBridge
+import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
@@ -50,6 +53,8 @@ class AppContainer(context: Context) {
         resolveUrl = ::resolveStreamUrl,
         onTrackStarted = library::recordPlayed,
     )
+    val companionBridge = CompanionBridge()
+    val companion = CompanionServer(appContext, playback, companionBridge)
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val httpClient = OkHttpClient.Builder()
@@ -72,6 +77,11 @@ class AppContainer(context: Context) {
                 "ready=$ok scripts=${lxEngine.scriptInfos().size} sources=${lxEngine.getSources().keys} " +
                     "error=${lxEngine.lastError}",
             )
+        }
+        appScope.launch {
+            settings.settings.collectLatest { current ->
+                if (current.companionEnabled) companion.start() else companion.stop()
+            }
         }
     }
 

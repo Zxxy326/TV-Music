@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import tv.music.player.MainActivity
 import tv.music.player.TvMusicApplication
+import tv.music.player.core.companion.CompanionEvent
 import tv.music.player.core.focus.TvFocusRegistry
 import tv.music.player.core.scale.TvScaleProvider
 import tv.music.player.core.settings.AppSettings
@@ -61,6 +62,20 @@ fun TvMusicApp() {
     LaunchedEffect(container.playback) {
         container.playback.errors.collect { capsuleHost.show(it) }
     }
+    LaunchedEffect(container.companionBridge) {
+        container.companionBridge.events.collect { event ->
+            when (event) {
+                is CompanionEvent.Search -> {
+                    navController.navigate(TvRoute.Search.route) { launchSingleTop = true }
+                    capsuleHost.show("手机发送：${event.query}")
+                }
+                CompanionEvent.OpenPlayer -> {
+                    navController.navigate(TvRoute.Player.route) { launchSingleTop = true }
+                }
+                is CompanionEvent.Message -> capsuleHost.show(event.text)
+            }
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     val homeGroup = remember { TvFocusRegistry.group("home") }
@@ -85,6 +100,8 @@ fun TvMusicApp() {
                         playback = container.playback,
                         onlineSearch = container.onlineSearch,
                         searchHistory = container.searchHistory,
+                        companionBridge = container.companionBridge,
+                        companionServer = container.companion,
                         library = container.library,
                         lxEngine = container.lxEngine,
                         lxFileStore = container.lxFileStore,

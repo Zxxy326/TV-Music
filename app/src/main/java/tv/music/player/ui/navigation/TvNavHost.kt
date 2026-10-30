@@ -11,6 +11,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import tv.music.player.core.companion.CompanionBridge
+import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
@@ -35,6 +37,8 @@ fun TvNavHost(
     playback: PlaybackController,
     onlineSearch: OnlineSearchApi,
     searchHistory: SearchHistoryStore,
+    companionBridge: CompanionBridge,
+    companionServer: CompanionServer,
     library: LibraryStore,
     lxEngine: LxJsEngine,
     lxFileStore: LxFileStore,
@@ -60,6 +64,7 @@ fun TvNavHost(
                 playback = playback,
                 onlineSearch = onlineSearch,
                 searchHistory = searchHistory,
+                companionBridge = companionBridge,
                 navController = navController,
             )
         }
@@ -111,6 +116,7 @@ fun TvNavHost(
                 lxEngine = lxEngine,
                 lxFileStore = lxFileStore,
                 onlineSearch = onlineSearch,
+                companionServer = companionServer,
                 onBack = { navController.popBackStack() },
             )
         }

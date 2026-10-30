@@ -226,13 +226,20 @@ fun HomeScreen(
                 Modifier
                     .fillMaxSize()
                     .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown &&
-                            (event.key == Key.DirectionUp || event.key == Key.DirectionDown)
-                        ) {
-                            val delta = if (event.key == Key.DirectionUp) -1 else 1
-                            handleVerticalKey(group.activeKey, delta)
-                        } else {
+                        if (event.type != KeyEventType.KeyDown) {
                             false
+                        } else {
+                            when {
+                                event.key == Key.Menu -> {
+                                    navController.navigate(TvRoute.Settings.route)
+                                    true
+                                }
+                                event.key == Key.DirectionUp || event.key == Key.DirectionDown -> {
+                                    val delta = if (event.key == Key.DirectionUp) -1 else 1
+                                    handleVerticalKey(group.activeKey, delta)
+                                }
+                                else -> false
+                            }
                         }
                     }
             ) {
@@ -336,6 +343,7 @@ fun HomeScreen(
                                 "OK" to "播放 / 进入",
                                 "返回" to "上一级",
                                 "长按返回" to "回到首页",
+                                "MENU" to "设置",
                             )
                         )
                         Spacer(Modifier.weight(1f))
@@ -402,7 +410,7 @@ private fun HomeHeader(
                         .background(accent)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("TV MUSIC · M1b", style = TvType.tracking, color = accent)
+                Text("TV MUSIC · M3a", style = TvType.tracking, color = accent)
             }
             Spacer(Modifier.height(6.dp))
             Text("$greeting，今晚听点什么？", style = TvType.display, color = TvColors.TextPrimary)

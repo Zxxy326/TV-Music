@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.tv.material3.Text
 import kotlinx.coroutines.CancellationException
@@ -55,6 +56,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
@@ -88,6 +90,7 @@ fun SearchScreen(
     playback: PlaybackController,
     onlineSearch: OnlineSearchApi,
     searchHistory: SearchHistoryStore,
+    companionBridge: CompanionBridge,
     navController: NavHostController,
 ) {
     val group = rememberTvFocusGroup("search")
@@ -107,6 +110,7 @@ fun SearchScreen(
     var isEnd by rememberSaveable { mutableStateOf(true) }
     var history by remember { mutableStateOf(searchHistory.load()) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    val externalQuery by companionBridge.pendingQuery.collectAsStateWithLifecycle()
     val resultsState = rememberLazyListState()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var moreJob by remember { mutableStateOf<Job?>(null) }
@@ -262,6 +266,16 @@ fun SearchScreen(
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     LaunchedEffect(windowFocused) {
         if (windowFocused && isActive) group.restore("t9:0")
+    }
+    LaunchedEffect(externalQuery, isActive) {
+        val term = externalQuery ?: return@LaunchedEffect
+        if (!isActive) return@LaunchedEffect
+        query = term
+        resultsJson = null
+        t9.reset()
+        delay(80)
+        runSearch()
+        companionBridge.consumeQuery()
     }
 
     val playTrack: (DemoTrack) -> Unit = { track ->

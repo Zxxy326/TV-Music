@@ -34,6 +34,7 @@ import androidx.tv.material3.Text
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import tv.music.player.BuildConfig
+import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.crash.CrashLogger
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.lx.LxFileStore
@@ -105,6 +106,7 @@ fun SettingsGroupScreen(
     lxEngine: LxJsEngine,
     lxFileStore: LxFileStore,
     onlineSearch: OnlineSearchApi,
+    companionServer: CompanionServer,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -115,7 +117,11 @@ fun SettingsGroupScreen(
     val scale = LocalTvScale.current
     var lxRefreshToken by remember { mutableIntStateOf(0) }
     val entries = buildEntries(groupId, settings, settingsRepository, scope, capsule, context, scale)
-    val firstFocusable = entries.firstOrNull { it !is SettingEntry.Info }?.key
+    val firstFocusKey = if (groupId == "companion") {
+        "companion:toggle"
+    } else {
+        entries.firstOrNull { it !is SettingEntry.Info }?.key?.let { "item:$it" }
+    }
 
     val sourcePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -155,11 +161,11 @@ fun SettingsGroupScreen(
     val activeRoute = LocalActiveRoute.current
     val isActive = activeRoute == TvRoute.SettingsGroup.route
     LaunchedEffect(isActive) {
-        if (isActive) group.restore("item:${firstFocusable.orEmpty()}")
+        if (isActive) group.restore(firstFocusKey ?: "item:")
     }
     val windowFocused = LocalWindowInfo.current.isWindowFocused
     LaunchedEffect(windowFocused) {
-        if (windowFocused && isActive) group.restore("item:${firstFocusable.orEmpty()}")
+        if (windowFocused && isActive) group.restore(firstFocusKey ?: "item:")
     }
 
     TvSafeArea {
@@ -171,7 +177,8 @@ fun SettingsGroupScreen(
                 onBack = onBack,
                 trailing = {
                     Text(
-                        "${entries.count { it !is SettingEntry.Info }} 项可调",
+                        if (groupId == "companion") "手机扫码即用"
+                        else "${entries.count { it !is SettingEntry.Info }} 项可调",
                         style = TvType.caption,
                         color = TvColors.TextTertiary,
                     )
@@ -183,6 +190,17 @@ fun SettingsGroupScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 88.dp),
             ) {
+                if (groupId == "companion") {
+                    item(key = "companion-card") {
+                        CompanionCard(
+                            server = companionServer,
+                            settings = settings,
+                            settingsRepository = settingsRepository,
+                            group = group,
+                            capsule = capsule,
+                        )
+                    }
+                }
                 if (groupId == "sources") {
                     item(key = "lx-sources-card") {
                         LxSourcesCard(
@@ -507,37 +525,13 @@ private fun buildEntries(
             ),
         )
 
-        "companion" -> listOf(
-            SettingEntry.Toggle(
-                key = "enabled",
-                title = "手机伴侣",
-                subtitle = "局域网 HTTP + 配对码，手机输入同步到 TV",
-                checked = settings.companionEnabled,
-                onToggle = {
-                    save(if (settings.companionEnabled) "手机伴侣已关闭" else "手机伴侣已开启（M3 提供配对页）") {
-                        repository.setCompanionEnabled(!settings.companionEnabled)
-                    }
-                },
-            ),
-            SettingEntry.Info(
-                key = "pairing",
-                title = "配对码",
-                value = if (settings.companionEnabled) "启动后显示" else "未开启",
-                subtitle = "4 位数字，30 天有效",
-            ),
-            SettingEntry.Info(
-                key = "address",
-                title = "局域网地址",
-                value = "http://<电视 IP>:8080",
-                subtitle = "手机与 TV 需在同一网段",
-            ),
-        )
+        "companion" -> emptyList()
 
         "about" -> listOf(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M2b",
+                value = "${BuildConfig.VERSION_NAME} · M3a",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

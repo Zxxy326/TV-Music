@@ -66,9 +66,9 @@ object SettingsGroups {
             id = "companion",
             title = "手机伴侣",
             subtitle = "扫码输入 · 手机遥控",
-            description = "局域网 HTTP 服务，手机输入同步到 TV 搜索框，并可控制播放与队列。M3 接入。",
+            description = "局域网 HTTP 服务已接入：手机扫码后输入搜索、暂停切歌、调进度与队列点播；手机与电视需在同一 Wi-Fi / 局域网。",
             icon = Icons.Rounded.Smartphone,
-            highlights = listOf("配对码", "输入同步", "手机遥控"),
+            highlights = listOf("配对码", "二维码", "输入同步", "播放遥控"),
         ),
         SettingsGroupInfo(
             id = "about",
