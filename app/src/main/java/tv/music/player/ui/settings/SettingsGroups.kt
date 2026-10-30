@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.ui.graphics.vector.ImageVector
 
 data class SettingsGroupInfo(
@@ -69,6 +70,14 @@ object SettingsGroups {
             description = "局域网 HTTP 服务已接入：手机扫码后输入搜索、暂停切歌、调进度与队列点播；手机与电视需在同一 Wi-Fi / 局域网。",
             icon = Icons.Rounded.Smartphone,
             highlights = listOf("配对码", "二维码", "输入同步", "播放遥控"),
+        ),
+        SettingsGroupInfo(
+            id = "update",
+            title = "更新",
+            subtitle = "检查版本 · 下载 APK · 系统安装",
+            description = "从 update.json 检查新版本，校验 SHA-256、包名与签名后交给系统安装器；正式版只接受 HTTPS 地址。",
+            icon = Icons.Rounded.SystemUpdate,
+            highlights = listOf("检查更新", "下载更新", "SHA-256", "系统安装"),
         ),
         SettingsGroupInfo(
             id = "about",

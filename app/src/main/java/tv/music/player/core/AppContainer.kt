@@ -29,6 +29,7 @@ import tv.music.player.core.playback.PlaybackService
 import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.update.UpdateStore
 import tv.music.player.core.settings.lxQuality
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -61,6 +62,7 @@ class AppContainer(context: Context) {
     )
     val companionBridge = CompanionBridge()
     val companion = CompanionServer(appContext, playback, companionBridge)
+    val updates = UpdateStore(appContext)
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val httpClient = OkHttpClient.Builder()

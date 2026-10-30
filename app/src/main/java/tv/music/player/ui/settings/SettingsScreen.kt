@@ -106,7 +106,7 @@ fun SettingsScreen(
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
-                        "v${BuildConfig.VERSION_NAME} · M3b1",
+                        "v${BuildConfig.VERSION_NAME} · M3c",
                         style = TvType.caption,
                         color = TvColors.TextTertiary,
                     )

@@ -23,6 +23,7 @@ import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.update.UpdateStore
 import tv.music.player.ui.home.HomeScreen
 import tv.music.player.ui.library.DownloadsScreen
 import tv.music.player.ui.library.LibraryScreen
@@ -43,6 +44,7 @@ fun TvNavHost(
     companionServer: CompanionServer,
     library: LibraryStore,
     downloads: DownloadStore,
+    updates: UpdateStore,
     lxEngine: LxJsEngine,
     lxFileStore: LxFileStore,
     lyricsRepository: LyricsRepository,
@@ -128,6 +130,7 @@ fun TvNavHost(
                 lxFileStore = lxFileStore,
                 onlineSearch = onlineSearch,
                 companionServer = companionServer,
+                updateStore = updates,
                 onBack = { navController.popBackStack() },
             )
         }

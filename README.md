@@ -2,9 +2,30 @@
 
 面向 Android TV / 电视盒子的音乐播放器，遥控器优先，大屏 960×540dp 基准设计，支持 4K 缩放与三档字号。
 
-当前版本 **0.8.0 · M3b1**：新增**歌曲下载与离线播放**——播放页一键下载当前歌曲，首页“本地音乐”查看进度与大小、断网直接播放、MENU 两次确认删除。M3a 的手机伴侣、M1b 的搜索/收藏/后台播放与 M2a/M2b 的逐字歌词、8 种样式继续保留。
+当前版本 **0.9.0 · M3c**：新增**在线更新**——设置里检查 `update.json`，下载 APK 并校验 SHA-256、包名、版本号与签名，再交给系统安装器覆盖安装。M3b1 的下载/离线库、M3a 的手机伴侣、M2 的逐字歌词与 M1 的搜索/后台播放继续保留。
 
 > 本仓库不包含任何音源脚本、音频或歌词文件。本地构建会把用户放在仓库根目录 `音源/` 下的 `*.js` 注入 APK 供自用；开源构建不注入脚本。README 末尾有版权与许可说明。
+
+## M3c 已实现（在线更新）
+
+### 检查与安装
+
+- **入口**：设置 → 更新。进入分组会自动检查一次，也可随时点“检查更新”。设置卡显示当前版本、状态、更新说明、包体大小与下载进度。
+- **清单**：`update.json` 提供 `versionCode / versionName / apkUrl / sha256 / sizeBytes / notes`；只有 `versionCode` 大于当前版本才会提示更新。默认地址为 jsDelivr 镜像，失败时依次回退到 raw.githubusercontent.com 与 cdn.jsdelivr.net；请求带短时缓存参数。
+- **下载**：显示百分比、已下载/总大小，可取消；下载到应用私有 `files/updates/`，完成后校验 SHA-256、APK 包名、`versionCode` 必须更高、签名必须与当前应用一致，任一失败都会删除安装包并显示原因。
+- **安装**：通过 FileProvider 把 APK 交给系统安装器（`ACTION_VIEW` + `application/vnd.android.package-archive`），首次需要允许本应用“安装未知应用”；未授权时自动打开该设置页，返回后再点“安装更新”。应用不会静默安装。
+- **安全**：正式版只接受 HTTPS 清单与安装包（debug 构建才允许 HTTP，便于本地验证）；安装包存储在应用私有目录，FileProvider 只暴露 `updates/`；签名校验保证不能被其他签名的 APK 覆盖。
+
+### 发布新版本
+
+1. 提升 `app/build.gradle.kts` 的 `versionCode` / `versionName`，构建 release APK。**上传到公开渠道的 APK 不要包含 `音源/` 脚本**（本地自用包也不要上传）。
+2. 计算 SHA-256 与字节数：`sha256sum app-release.apk`、`stat -c%s app-release.apk`。
+3. 把 APK 放到稳定的 HTTPS 地址（GitHub Release 资产或自己的静态站点），编辑根目录 `update.json` 的六个字段并提交。
+4. 客户端默认从 `https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json` 读取；jsDelivr 有缓存，必要时用 raw.githubusercontent.com 或构建时覆盖清单地址：
+   `./gradlew :app:assembleRelease -Ptvmusic.updateManifest=https://example.com/update.json`
+5. 本地联调可用 `-Ptvmusic.versionCode=10 -Ptvmusic.versionName=0.9.1-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
+
+仓库里的 `update.json` 当前版本号与 App 一致且 `apkUrl` 为空，所以正常检查只会得到“已是最新”；发布时再填入真实包地址与哈希。
 
 ## M3b1 已实现（下载与离线库）
 
@@ -131,6 +152,7 @@ app/src/main/java/tv/music/player/
 │   ├── lyrics/                LRC/QRC 解析、QQ 歌词接口、磁盘缓存、手动匹配
 │   ├── companion/             手机伴侣 HTTP 服务、配对、遥控页与桥接事件
 │   ├── download/              歌曲下载、进度、文件命名与下载索引
+│   ├── update/                更新清单、APK 下载校验与安装入口
 │   ├── library/               收藏与最近播放本地持久化
 │   ├── playback/              Media3 播放控制器、MediaSession 服务、演示曲目
 │   ├── focus/                 FocusGroup、焦点记忆、TvSurface
@@ -155,12 +177,19 @@ app/src/main/java/tv/music/player/
 - **M2b（已完成）**：QRC 逐字歌词、卡拉OK扫色、弹跳气泡、双语对照、样式轮盘与预览、黑胶/沉浸样式、布局 B、歌词磁盘缓存与手动匹配。
 - **M1b（已完成）**：拼音 T9 与联想、搜索历史与分页、收藏/最近播放本地持久化、MediaSessionService/通知/媒体键、音源文件导入与逐源取流测试。
 - **M3a（已完成）**：局域网手机伴侣、配对二维码、手机搜索输入同步、播放/进度/队列遥控。
-- **M3b1（当前，已完成）**：歌曲下载、进度展示、本地音乐页、断网播放与二次确认删除。
+- **M3b1（已完成）**：歌曲下载、进度展示、本地音乐页、断网播放与二次确认删除。
 - **M3b2**：账号扫码（QQ / 网易云）、Cookie 导入、我的歌单与整单播放。
+- **M3c（当前，已完成）**：在线更新清单、APK 下载与校验、系统安装器覆盖安装。
 - **M4**：本地库（USB/SMB）、音源市场与安装校验。
 - **M5**：发布、更新与打磨。
 
-## 已知限制（M3b1）
+## 已知限制（M3c）
+
+- 更新必须由用户在系统安装器里确认，不能静默安装；首次需要允许本应用“安装未知应用”。个别电视盒子没有可用的安装器界面，会提示无法启动。
+- 更新包必须与当前安装包使用同一签名。以后若从 debug 签名切换到正式 keystore，旧版本无法在线覆盖升级，只能卸载重装（应用数据会丢失）。
+- 清单与 APK 依赖 jsDelivr / GitHub 或自建静态站点；jsDelivr 缓存可能延迟。只做整包更新，没有增量更新；正式版拒绝 HTTP 地址。
+- 更新下载随 App 进程存活，没有 WorkManager/前台下载服务；进程被杀会中断下载。已完成的安装包会保留，重新进入更新页检查后可直接安装。
+- 公开分发的 APK 不要包含 `音源/` 脚本（本仓库规则）；`update.json` 中的哈希与版本号必须与实际包一致，否则客户端会拒绝下载或校验失败。
 
 - 手机伴侣仅面向可信局域网：HTTP 明文、4 位配对码，没有 HTTPS、账号或设备白名单；不要暴露到公网。服务随 App 进程存活，进程被杀后需重新打开电视端。
 - 手机遥控页是浏览器页面，没有原生 App/PWA 安装；部分电视/路由开启 AP 隔离时手机无法访问电视。
@@ -177,7 +206,7 @@ app/src/main/java/tv/music/player/
 - 音源导入通过系统文件选择器选择 `.js`；URL 安装、音源市场、启停排序在 M4。源测试使用 QQ 元数据，部分源无法跨源解析属于预期结果。
 - MediaSession 后台播放与通知栏已在模拟器验证；演示曲目没有真实 URL，不产生媒体通知。Android 13+ 需授予通知权限。
 - Release 使用 debug 签名、R8 关闭，包体偏大；4K 缩放逻辑已接入，尚未在 4K 真机逐项验收。
-- 已在 1080p 横屏模拟器（SwiftShader 软件渲染）验证交互、导入、分页、媒体键，手机伴侣的配对、输入同步、队列点播、暂停与 seek，以及下载、重启后索引恢复、飞行模式离线播放和 MENU 二次确认删除；模拟器帧率数据不代表真机。
+- 已在 1080p 横屏模拟器（SwiftShader 软件渲染）验证交互、导入、分页、媒体键，手机伴侣的配对、输入同步、队列点播、暂停与 seek，下载、重启后索引恢复、飞行模式离线播放和 MENU 二次确认删除，以及在线更新的检查、下载、SHA-256/签名校验与系统安装器覆盖升级；模拟器帧率数据不代表真机。
 
 ## 版权与许可
 

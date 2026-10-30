@@ -47,6 +47,7 @@ import tv.music.player.core.settings.PlayerLayout
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.settings.formatLyricOffset
 import tv.music.player.core.settings.lxQuality
+import tv.music.player.core.update.UpdateStore
 import tv.music.player.core.theme.TvColors
 import tv.music.player.core.theme.TvType
 import tv.music.player.ui.components.CapsuleHostState
@@ -107,6 +108,7 @@ fun SettingsGroupScreen(
     lxFileStore: LxFileStore,
     onlineSearch: OnlineSearchApi,
     companionServer: CompanionServer,
+    updateStore: UpdateStore,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -117,10 +119,10 @@ fun SettingsGroupScreen(
     val scale = LocalTvScale.current
     var lxRefreshToken by remember { mutableIntStateOf(0) }
     val entries = buildEntries(groupId, settings, settingsRepository, scope, capsule, context, scale)
-    val firstFocusKey = if (groupId == "companion") {
-        "companion:toggle"
-    } else {
-        entries.firstOrNull { it !is SettingEntry.Info }?.key?.let { "item:$it" }
+    val firstFocusKey = when (groupId) {
+        "companion" -> "companion:toggle"
+        "update" -> "update:check"
+        else -> entries.firstOrNull { it !is SettingEntry.Info }?.key?.let { "item:$it" }
     }
 
     val sourcePicker = rememberLauncherForActivityResult(
@@ -177,8 +179,11 @@ fun SettingsGroupScreen(
                 onBack = onBack,
                 trailing = {
                     Text(
-                        if (groupId == "companion") "手机扫码即用"
-                        else "${entries.count { it !is SettingEntry.Info }} 项可调",
+                        when (groupId) {
+                            "companion" -> "手机扫码即用"
+                            "update" -> "检查 · 下载 · 安装"
+                            else -> "${entries.count { it !is SettingEntry.Info }} 项可调"
+                        },
                         style = TvType.caption,
                         color = TvColors.TextTertiary,
                     )
@@ -196,6 +201,15 @@ fun SettingsGroupScreen(
                             server = companionServer,
                             settings = settings,
                             settingsRepository = settingsRepository,
+                            group = group,
+                            capsule = capsule,
+                        )
+                    }
+                }
+                if (groupId == "update") {
+                    item(key = "update-card") {
+                        UpdateCard(
+                            store = updateStore,
                             group = group,
                             capsule = capsule,
                         )
@@ -526,12 +540,13 @@ private fun buildEntries(
         )
 
         "companion" -> emptyList()
+        "update" -> emptyList()
 
         "about" -> listOf(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M3b1",
+                value = "${BuildConfig.VERSION_NAME} · M3c",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

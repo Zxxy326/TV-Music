@@ -15,8 +15,12 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.8.0"
+        versionCode = providers.gradleProperty("tvmusic.versionCode").orNull?.toInt() ?: 9
+        versionName = providers.gradleProperty("tvmusic.versionName").orNull ?: "0.9.0"
+        val manifestUrl = providers.gradleProperty("tvmusic.updateManifest")
+            .orElse("https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json")
+            .get()
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"${manifestUrl.replace("\"", "\\\"")}\"")
     }
 
     buildTypes {
