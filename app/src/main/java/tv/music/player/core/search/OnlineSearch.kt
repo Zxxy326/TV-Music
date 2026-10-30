@@ -28,6 +28,7 @@ data class OnlineTrack(
     val albumMid: String = "",
     val albumId: String = "",
     val artistIds: String = "",
+    val songId: Long = 0L,
 )
 
 data class OnlineSearchResult(
@@ -52,6 +53,7 @@ fun OnlineTrack.toDemoTrack(): DemoTrack {
         onlineHash = strMediaMid,
         onlineAlbumMid = albumMid,
         onlineStrMediaMid = strMediaMid,
+        onlineSongNumericId = songId,
     )
 }
 
@@ -147,6 +149,7 @@ class OnlineSearchApi {
                 albumMid = albumMid,
                 albumId = albumId,
                 artistIds = singerIds.joinToString(","),
+                songId = item.optLong("id", 0L),
             )
         }
 

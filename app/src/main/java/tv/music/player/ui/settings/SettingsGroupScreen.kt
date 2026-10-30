@@ -263,7 +263,7 @@ private fun buildEntries(
             SettingEntry.Choice(
                 key = "lyricStyle",
                 title = "歌词样式",
-                subtitle = "经典逐行 / 大字幕 / 极简纯文字，播放页按 MENU 也可切换",
+                subtitle = "经典 / 大字幕 / 极简 / 卡拉OK / 气泡 / 双语，按 MENU 也可切换",
                 value = settings.lyricStyle.label,
                 onNext = {
                     val next = settings.lyricStyle.next()
@@ -473,7 +473,7 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M2a",
+                value = "${BuildConfig.VERSION_NAME} · M2b",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

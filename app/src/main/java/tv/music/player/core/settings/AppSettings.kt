@@ -18,6 +18,9 @@ enum class LyricStyle(val label: String, val hint: String) {
     CLASSIC("经典逐行", "当前行放大，上下渐隐"),
     SUBTITLE("大字幕", "底部两行超大描边字"),
     MINIMAL("极简纯文字", "纯黑底，无封面无装饰"),
+    KARAOKE("卡拉OK扫色", "逐字亮起，未唱部分保持灰色"),
+    BOUNCE("弹跳气泡", "逐字弹性跳动，带圆角气泡"),
+    BILINGUAL("双语对照", "主词扫色，翻译副行同步高亮"),
 }
 
 /** 正值表示歌词提前出现。 */

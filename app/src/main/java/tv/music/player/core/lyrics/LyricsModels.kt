@@ -1,9 +1,17 @@
 package tv.music.player.core.lyrics
 
+data class LyricWord(
+    val timeMs: Long,
+    val durationMs: Long,
+    val text: String,
+)
+
 data class LyricLine(
     val timeMs: Long,
     val text: String,
     val translation: String? = null,
+    val durationMs: Long = 0L,
+    val words: List<LyricWord> = emptyList(),
 )
 
 data class Lyrics(

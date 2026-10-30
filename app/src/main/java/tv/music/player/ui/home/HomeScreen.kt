@@ -391,7 +391,7 @@ private fun HomeHeader(
                         .background(accent)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("TV MUSIC · M2a", style = TvType.tracking, color = accent)
+                Text("TV MUSIC · M2b", style = TvType.tracking, color = accent)
             }
             Spacer(Modifier.height(6.dp))
             Text("$greeting，今晚听点什么？", style = TvType.display, color = TvColors.TextPrimary)

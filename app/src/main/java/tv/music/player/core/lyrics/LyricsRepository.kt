@@ -25,7 +25,7 @@ class LyricsRepository(
 
         cache.get(songmid)?.let { return@withContext LyricsState.Ready(it) }
         try {
-            val lyrics = api.fetch(songmid)
+            val lyrics = api.fetch(songmid, track.onlineSongNumericId)
             when {
                 lyrics == null -> LyricsState.Unavailable("暂无歌词")
                 lyrics.instrumental -> LyricsState.Unavailable("纯音乐，请欣赏")

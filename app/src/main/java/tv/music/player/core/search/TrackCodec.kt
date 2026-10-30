@@ -21,6 +21,7 @@ fun List<DemoTrack>.encodeTracks(): String {
                 put("onlineHash", track.onlineHash)
                 put("onlineAlbumMid", track.onlineAlbumMid)
                 put("onlineStrMediaMid", track.onlineStrMediaMid)
+                put("onlineSongNumericId", track.onlineSongNumericId)
             }
         )
     }
@@ -48,6 +49,7 @@ fun decodeTracks(json: String?): List<DemoTrack>? {
                         onlineHash = item.optString("onlineHash"),
                         onlineAlbumMid = item.optString("onlineAlbumMid"),
                         onlineStrMediaMid = item.optString("onlineStrMediaMid"),
+                        onlineSongNumericId = item.optLong("onlineSongNumericId"),
                     )
                 )
             }

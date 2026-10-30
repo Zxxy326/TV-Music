@@ -3,7 +3,9 @@ package tv.music.player.ui.player
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,6 +13,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,8 +22,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,10 +61,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -71,9 +79,12 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,6 +96,7 @@ import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.lyrics.LyricLine
+import tv.music.player.core.lyrics.LyricWord
 import tv.music.player.core.lyrics.Lyrics
 import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.lyrics.LyricsState
@@ -179,23 +191,23 @@ fun PlayerScreen(
 
     fun activateLyricOption(index: Int) {
         when (index) {
-            0, 1, 2 -> {
+            0, 1, 2, 3, 4, 5 -> {
                 val style = LyricStyle.entries[index]
                 saveSetting("歌词样式：${style.label}") { settingsRepository.setLyricStyle(style) }
             }
-            3 -> saveSetting(if (settings.showLyricTranslation) "已隐藏歌词翻译" else "已显示歌词翻译") {
+            6 -> saveSetting(if (settings.showLyricTranslation) "已隐藏歌词翻译" else "已显示歌词翻译") {
                 settingsRepository.setShowLyricTranslation(!settings.showLyricTranslation)
             }
-            4 -> {
+            7 -> {
                 val next = (settings.lyricOffsetMs + 500).coerceIn(-5_000, 5_000)
                 saveSetting("歌词偏移：${formatLyricOffset(next)}") { settingsRepository.setLyricOffset(next) }
             }
-            5 -> {
+            8 -> {
                 val next = (settings.lyricOffsetMs - 500).coerceIn(-5_000, 5_000)
                 saveSetting("歌词偏移：${formatLyricOffset(next)}") { settingsRepository.setLyricOffset(next) }
             }
-            6 -> saveSetting("歌词偏移已归零") { settingsRepository.setLyricOffset(0) }
-            7 -> {
+            9 -> saveSetting("歌词偏移已归零") { settingsRepository.setLyricOffset(0) }
+            10 -> {
                 lyricsAttempt++
                 capsule.show("正在重新获取歌词")
             }
@@ -226,11 +238,11 @@ fun PlayerScreen(
                     } else {
                         when (event.key) {
                             Key.DirectionLeft -> {
-                                lyricOption = (lyricOption + 7) % 8
+                                lyricOption = (lyricOption + 10) % 11
                                 true
                             }
                             Key.DirectionRight -> {
-                                lyricOption = (lyricOption + 1) % 8
+                                lyricOption = (lyricOption + 1) % 11
                                 true
                             }
                             Key.DirectionCenter, Key.Enter -> {
@@ -518,6 +530,32 @@ private fun LyricsView(
                     showTranslation = settings.showLyricTranslation,
                     scale = scale,
                 )
+                LyricStyle.KARAOKE -> KaraokeLyrics(
+                    lyrics = lyrics,
+                    positionMs = snapshot.positionMs,
+                    offsetMs = settings.lyricOffsetMs,
+                    showTranslation = settings.showLyricTranslation,
+                    scale = scale,
+                    animations = settings.animationsEnabled,
+                    bilingual = false,
+                )
+                LyricStyle.BOUNCE -> BounceLyrics(
+                    lyrics = lyrics,
+                    positionMs = snapshot.positionMs,
+                    offsetMs = settings.lyricOffsetMs,
+                    showTranslation = settings.showLyricTranslation,
+                    scale = scale,
+                    animations = settings.animationsEnabled,
+                )
+                LyricStyle.BILINGUAL -> KaraokeLyrics(
+                    lyrics = lyrics,
+                    positionMs = snapshot.positionMs,
+                    offsetMs = settings.lyricOffsetMs,
+                    showTranslation = settings.showLyricTranslation,
+                    scale = scale,
+                    animations = settings.animationsEnabled,
+                    bilingual = true,
+                )
             }
         }
     }
@@ -746,6 +784,324 @@ private fun OutlinedLyric(text: String, fontSize: androidx.compose.ui.unit.TextU
 }
 
 @Composable
+private fun SyncedLyrics(
+    lyrics: Lyrics,
+    positionMs: Long,
+    offsetMs: Int,
+    animations: Boolean,
+    content: @Composable (LyricLine, Boolean) -> Unit,
+) {
+    val currentIndex = lyrics.indexAt(positionMs, offsetMs.toLong())
+    val scrollState = rememberScrollState()
+    var viewportPx by remember { mutableIntStateOf(0) }
+    val heights = remember(lyrics) { mutableStateMapOf<Int, Int>() }
+    val halfSpacer = with(LocalDensity.current) { (viewportPx / 2).toDp() }
+
+    LaunchedEffect(currentIndex, heights.size, heights[currentIndex], viewportPx) {
+        if (currentIndex < 0 || viewportPx == 0) return@LaunchedEffect
+        val currentHeight = heights[currentIndex] ?: 0
+        if (currentHeight == 0) return@LaunchedEffect
+        var before = 0
+        for (index in 0 until currentIndex) before += heights[index] ?: 0
+        val target = (before + currentHeight / 2).coerceIn(0, scrollState.maxValue)
+        if (animations) scrollState.animateScrollTo(target) else scrollState.scrollTo(target)
+    }
+
+    Box(Modifier.fillMaxSize().onSizeChanged { viewportPx = it.height }) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (viewportPx > 0) Spacer(Modifier.height(halfSpacer))
+            lyrics.lines.forEachIndexed { index, line ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { heights[index] = it.height }
+                        .padding(vertical = 5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    content(line, index == currentIndex)
+                }
+            }
+            if (viewportPx > 0) Spacer(Modifier.height(halfSpacer))
+        }
+    }
+}
+
+@Composable
+private fun KaraokeLyrics(
+    lyrics: Lyrics,
+    positionMs: Long,
+    offsetMs: Int,
+    showTranslation: Boolean,
+    scale: Float,
+    animations: Boolean,
+    bilingual: Boolean,
+) {
+    SyncedLyrics(lyrics, positionMs, offsetMs, animations) { line, active ->
+        if (active) {
+            KaraokeLine(
+                line = line,
+                positionMs = positionMs,
+                offsetMs = offsetMs,
+                showTranslation = showTranslation,
+                scale = scale,
+                bilingual = bilingual,
+            )
+        } else {
+            PlainLyricLine(
+                line = line,
+                scale = scale,
+                showTranslation = showTranslation && bilingual,
+                active = false,
+            )
+        }
+    }
+}
+
+@Composable
+private fun KaraokeLine(
+    line: LyricLine,
+    positionMs: Long,
+    offsetMs: Int,
+    showTranslation: Boolean,
+    scale: Float,
+    bilingual: Boolean,
+) {
+    val accent = LocalTvAccent.current
+    val measurer = rememberTextMeasurer()
+    val fontSize = (42f * scale).sp
+    val style = TextStyle(
+        fontSize = fontSize,
+        lineHeight = (fontSize.value * 1.28f).sp,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+    )
+    val density = LocalDensity.current
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+    ) {
+        val widthPx = constraints.maxWidth
+        val layout = remember(line.text, style, widthPx) {
+            measurer.measure(line.text, style, constraints = Constraints(maxWidth = widthPx))
+        }
+        val heightDp = with(density) { layout.size.height.toDp() }
+        val textX = ((widthPx - layout.size.width) / 2f).coerceAtLeast(0f)
+        Canvas(Modifier.fillMaxWidth().height(heightDp)) {
+            drawText(layout, color = Color.White.copy(alpha = 0.28f), topLeft = Offset(textX, 0f))
+            val sung = karaokeChars(line, positionMs + offsetMs)
+            if (sung > 0f) {
+                drawKaraokeSweep(layout, sung, accent, textX)
+            }
+        }
+    }
+    if (showTranslation && !line.translation.isNullOrBlank()) {
+        Spacer(Modifier.height(if (bilingual) 8.dp else 4.dp))
+        Text(
+            text = line.translation,
+            style = TextStyle(
+                fontSize = ((if (bilingual) 25f else 22f) * scale).sp,
+                lineHeight = ((if (bilingual) 32f else 28f) * scale).sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = if (bilingual) accent.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+        )
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawKaraokeSweep(
+    layout: androidx.compose.ui.text.TextLayoutResult,
+    charsSung: Float,
+    accent: Color,
+    textX: Float,
+) {
+    for (lineIndex in 0 until layout.lineCount) {
+        val lineStart = layout.getLineStart(lineIndex)
+        val lineEnd = layout.getLineEnd(lineIndex)
+        if (lineEnd <= lineStart) continue
+        val top = layout.getLineTop(lineIndex)
+        val bottom = layout.getLineBottom(lineIndex)
+        when {
+            charsSung >= lineEnd -> clipRect(left = textX, top = top, right = textX + layout.size.width, bottom = bottom) {
+                drawText(layout, color = accent, topLeft = Offset(textX, 0f))
+            }
+            charsSung > lineStart -> {
+                val charIndex = charsSung.toInt().coerceIn(lineStart, lineEnd - 1)
+                val box = layout.getBoundingBox(charIndex)
+                val boundary = textX + box.left + box.width * (charsSung - charIndex)
+                clipRect(left = textX, top = top, right = boundary, bottom = bottom) {
+                    drawText(layout, color = accent, topLeft = Offset(textX, 0f))
+                }
+            }
+        }
+    }
+}
+
+private fun karaokeChars(line: LyricLine, timeMs: Long): Float {
+    val max = line.text.length.toFloat()
+    if (max <= 0f) return 0f
+    if (line.words.isEmpty()) {
+        val duration = line.durationMs.takeIf { it > 0L } ?: 4_000L
+        val fraction = ((timeMs - line.timeMs).toFloat() / duration).coerceIn(0f, 1f)
+        return fraction * max
+    }
+    var sung = 0
+    for (word in line.words) {
+        val end = word.timeMs + word.durationMs
+        if (timeMs < word.timeMs) return sung.toFloat().coerceAtMost(max)
+        if (timeMs < end) {
+            val fraction = if (word.durationMs <= 0L) 0f else
+                (timeMs - word.timeMs).toFloat() / word.durationMs
+            return (sung + fraction * word.text.length).coerceAtMost(max)
+        }
+        sung += word.text.length
+    }
+    return max
+}
+
+@Composable
+private fun PlainLyricLine(
+    line: LyricLine,
+    scale: Float,
+    showTranslation: Boolean,
+    active: Boolean,
+) {
+    val fontSize = ((if (active) 40f else 24f) * scale).sp
+    Text(
+        text = line.text,
+        style = TextStyle(
+            fontSize = fontSize,
+            lineHeight = (fontSize.value * 1.3f).sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+        ),
+        color = Color.White.copy(alpha = if (active) 0.95f else 0.35f),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+    )
+    if (showTranslation && !line.translation.isNullOrBlank()) {
+        Text(
+            text = line.translation,
+            style = TextStyle(
+                fontSize = (18f * scale).sp,
+                lineHeight = (24f * scale).sp,
+                fontWeight = FontWeight.Normal,
+            ),
+            color = Color.White.copy(alpha = 0.38f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        )
+    }
+}
+
+@Composable
+private fun BounceLyrics(
+    lyrics: Lyrics,
+    positionMs: Long,
+    offsetMs: Int,
+    showTranslation: Boolean,
+    scale: Float,
+    animations: Boolean,
+) {
+    SyncedLyrics(lyrics, positionMs, offsetMs, animations) { line, active ->
+        if (active) {
+            BounceLine(
+                line = line,
+                positionMs = positionMs,
+                offsetMs = offsetMs,
+                showTranslation = showTranslation,
+                scale = scale,
+                animations = animations,
+            )
+        } else {
+            PlainLyricLine(line = line, scale = scale, showTranslation = false, active = false)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun BounceLine(
+    line: LyricLine,
+    positionMs: Long,
+    offsetMs: Int,
+    showTranslation: Boolean,
+    scale: Float,
+    animations: Boolean,
+) {
+    val accent = LocalTvAccent.current
+    val t = positionMs + offsetMs
+    val words = if (line.words.isNotEmpty()) {
+        line.words
+    } else {
+        listOf(LyricWord(line.timeMs, line.durationMs.takeIf { it > 0L } ?: 4_000L, line.text))
+    }
+    val activeIndex = words.indexOfLast { t >= it.timeMs && t < it.timeMs + it.durationMs }
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        words.forEachIndexed { index, word ->
+            val active = index == activeIndex
+            val emphasize = active && word.text.any { it.isLetterOrDigit() }
+            val sung = word.timeMs <= t
+            val bounce by animateFloatAsState(
+                targetValue = if (emphasize) 1.18f else 1f,
+                animationSpec = if (animations) {
+                    spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)
+                } else {
+                    tween(0)
+                },
+                label = "bounce-$index",
+            )
+            val shape = RoundedCornerShape(8.dp)
+            Box(
+                Modifier
+                    .graphicsLayer {
+                        scaleX = bounce
+                        scaleY = bounce
+                    }
+                    .background(
+                        color = if (emphasize) accent.copy(alpha = 0.24f) else Color.Transparent,
+                        shape = shape,
+                    )
+                    .padding(horizontal = 1.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    text = word.text,
+                    style = TextStyle(
+                        fontSize = (36f * scale).sp,
+                        lineHeight = (42f * scale).sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = when {
+                        active -> accent
+                        sung -> Color.White.copy(alpha = 0.92f)
+                        else -> Color.White.copy(alpha = 0.3f)
+                    },
+                )
+            }
+        }
+    }
+    if (showTranslation && !line.translation.isNullOrBlank()) {
+        Text(
+            text = line.translation,
+            style = TextStyle(
+                fontSize = (21f * scale).sp,
+                lineHeight = (27f * scale).sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            color = Color.White.copy(alpha = 0.55f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 5.dp, start = 24.dp, end = 24.dp),
+        )
+    }
+}
+
+@Composable
 private fun LyricsSettingsPanel(
     settings: AppSettings,
     lyricsState: LyricsState,
@@ -795,17 +1151,17 @@ private fun LyricsSettingsPanel(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 LyricChoice(
                     label = if (settings.showLyricTranslation) "翻译 开" else "翻译 关",
-                    selected = selectedIndex == 3,
+                    selected = selectedIndex == 6,
                     active = settings.showLyricTranslation,
                 )
-                LyricChoice(label = "提前 0.5s", selected = selectedIndex == 4)
-                LyricChoice(label = "延后 0.5s", selected = selectedIndex == 5)
-                LyricChoice(label = "归零", selected = selectedIndex == 6)
-                LyricChoice(label = "重新获取", selected = selectedIndex == 7)
+                LyricChoice(label = "提前 0.5s", selected = selectedIndex == 7)
+                LyricChoice(label = "延后 0.5s", selected = selectedIndex == 8)
+                LyricChoice(label = "归零", selected = selectedIndex == 9)
+                LyricChoice(label = "重新获取", selected = selectedIndex == 10)
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "← → 选择 · OK 执行 · MENU / 返回 关闭；偏移 ±0.5s 步进、范围 ±5s，立即生效并持久化。逐字样式与样式轮盘在 M2b 接入。",
+                "← → 选择 · OK 执行 · MENU / 返回 关闭；偏移 ±0.5s 步进、范围 ±5s。逐字样式已接入，样式轮盘与布局 B 后续补齐。",
                 style = TvType.caption,
                 color = TvColors.TextTertiary,
             )

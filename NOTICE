@@ -49,6 +49,11 @@ core/lx 下的 LX QuickJS 引擎、HTTP 客户端与脚本存储移植自该项�
   Apache License 2.0
   https://fonts.google.com/icons
 
+- QQ 音乐 QRC 解密算法（改版 DES）参考并移植自：
+  TLittlePrince/qrcDecrypt  https://github.com/TLittlePrince/qrcDecrypt
+  SuJiKiNen/LyricDecoder    https://github.com/SuJiKiNen/LyricDecoder
+  仅用于解析用户本机在线请求到的歌词数据。
+
 音源脚本与内容
 --------------
 仓库与开源构建不包含任何音源插件、LX 脚本、音频文件或歌词文件。

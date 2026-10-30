@@ -3,6 +3,8 @@ package tv.music.player.core.lyrics
 import android.util.Base64
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -24,18 +26,65 @@ class QqLyricsApi {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun fetch(songmid: String): Lyrics? = withContext(Dispatchers.IO) {
+    suspend fun fetch(songmid: String, songId: Long = 0L): Lyrics? = withContext(Dispatchers.IO) {
         require(songmid.isNotBlank()) { "缺少歌曲 ID" }
-        val primary = runCatching { fetchMusicu(songmid) }
-            .onFailure { Log.w(TAG, "musicu lyric failed: ${it.message}") }
-            .getOrNull()
-        if (primary != null && (primary.lines.isNotEmpty() || primary.instrumental)) return@withContext primary
+        coroutineScope {
+            val lineDeferred = async {
+                runCatching { fetchMusicu(songmid) }
+                    .onFailure { Log.w(TAG, "musicu lyric failed: ${it.message}") }
+                    .getOrNull()
+            }
+            val qrcDeferred = if (songId > 0L) {
+                async {
+                    runCatching { fetchQrcXml(songId) }
+                        .onFailure { Log.w(TAG, "qrc fetch failed: ${it.message}") }
+                        .getOrNull()
+                }
+            } else {
+                null
+            }
 
-        val legacy = runCatching { fetchLegacy(songmid) }
-            .onFailure { Log.w(TAG, "legacy lyric failed: ${it.message}") }
-            .getOrNull()
-        if (legacy != null && legacy.lines.isNotEmpty()) return@withContext legacy
-        primary
+            val line = lineDeferred.await()
+            val qrcXml = qrcDeferred?.await()
+            if (qrcXml != null) {
+                val qrc = runCatching { QrcParser.parseXml(qrcXml, line) }
+                    .onFailure { Log.w(TAG, "qrc parse failed: ${it.message}") }
+                    .getOrNull()
+                if (qrc != null && qrc.lines.isNotEmpty()) {
+                    Log.d(TAG, "qrc mid=$songmid songId=$songId lines=${qrc.lines.size}")
+                    return@coroutineScope qrc
+                }
+            }
+            if (line != null && (line.lines.isNotEmpty() || line.instrumental)) {
+                return@coroutineScope line
+            }
+
+            val legacy = runCatching { fetchLegacy(songmid) }
+                .onFailure { Log.w(TAG, "legacy lyric failed: ${it.message}") }
+                .getOrNull()
+            if (legacy != null && legacy.lines.isNotEmpty()) return@coroutineScope legacy
+            line
+        }
+    }
+
+    private fun fetchQrcXml(songId: Long): String? {
+        val url = "https://c.y.qq.com/qqmusic/fcgi-bin/lyric_download.fcg" +
+            "?version=15&miniversion=82&lrctype=4&musicid=$songId"
+        val request = Request.Builder()
+            .url(url)
+            .header("Referer", "https://y.qq.com/")
+            .header("User-Agent", UA)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.w(TAG, "qrc http ${response.code}")
+                return null
+            }
+            val body = response.body.string()
+            val cipher = QrcParser.extractCdataHex(body) ?: return null
+            val xml = QrcParser.decryptAndInflate(cipher)
+            return xml.takeIf { it.contains("LyricContent") }
+        }
     }
 
     private fun fetchMusicu(songmid: String): Lyrics? {

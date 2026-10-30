@@ -13,6 +13,7 @@ data class DemoTrack(
     val onlineHash: String = "",
     val onlineAlbumMid: String = "",
     val onlineStrMediaMid: String = "",
+    val onlineSongNumericId: Long = 0L,
 ) {
     val isOnline: Boolean get() = onlineSource.isNotBlank()
 }

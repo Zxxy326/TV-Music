@@ -6,6 +6,7 @@ private val OFFSET_TAG = Regex("""\[offset:\s*([+-]?\d+)]""", RegexOption.IGNORE
 private val INSTRUMENTAL_MARKERS = listOf(
     "纯音乐，请欣赏",
     "纯音乐,请欣赏",
+    "纯音乐",
     "此歌曲为没有填词的纯音乐",
     "暂无歌词",
 )

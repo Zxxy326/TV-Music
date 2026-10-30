@@ -59,6 +59,7 @@ class AppContainer(context: Context) {
             "id" to track.onlineSongId,
             "songmid" to track.onlineSongId,
             "songId" to track.onlineSongId,
+            "musicid" to track.onlineSongNumericId,
             "hash" to track.onlineHash.ifBlank { track.onlineSongId },
             "name" to track.title,
             "singer" to track.artist,
