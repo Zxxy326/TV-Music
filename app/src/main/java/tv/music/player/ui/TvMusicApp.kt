@@ -104,6 +104,8 @@ fun TvMusicApp() {
                         companionServer = container.companion,
                         library = container.library,
                         localLibrary = container.localLibrary,
+                        smbConfig = container.smbConfig,
+                        smbRepository = container.smbRepository,
                         sourceMarket = container.sourceMarket,
                         downloads = container.downloads,
                         updates = container.updates,

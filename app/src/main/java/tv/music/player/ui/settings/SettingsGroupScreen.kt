@@ -112,6 +112,7 @@ fun SettingsGroupScreen(
     onOpenDeviceMusic: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenSourceMarket: () -> Unit,
+    onOpenSmb: () -> Unit,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -132,6 +133,7 @@ fun SettingsGroupScreen(
         onOpenDeviceMusic = onOpenDeviceMusic,
         onOpenDownloads = onOpenDownloads,
         onOpenSourceMarket = onOpenSourceMarket,
+        onOpenSmb = onOpenSmb,
     )
     val firstFocusKey = when (groupId) {
         "companion" -> "companion:toggle"
@@ -326,6 +328,7 @@ private fun buildEntries(
     onOpenDeviceMusic: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenSourceMarket: () -> Unit,
+    onOpenSmb: () -> Unit,
 ): List<SettingEntry> {
 
     fun save(message: String, block: suspend () -> Unit) {
@@ -550,10 +553,10 @@ private fun buildEntries(
             ),
             SettingEntry.Action(
                 key = "smb",
-                title = "添加 SMB 共享",
+                title = "SMB 共享",
                 subtitle = "jcifs-ng 直连 NAS，凭据加密保存",
-                value = "M4",
-                onClick = { capsule.show("SMB 挂载将在 M4 接入") },
+                value = "已接入",
+                onClick = onOpenSmb,
             ),
         )
 
@@ -564,8 +567,8 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M3c",
-                subtitle = "骨架与焦点系统",
+                value = "${BuildConfig.VERSION_NAME} · M4",
+                subtitle = "本地库 · 音源市场 · 在线更新",
             ),
             SettingEntry.Info(
                 key = "scale",

@@ -31,8 +31,12 @@ import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.source.SourceMarketStore
+import tv.music.player.core.smb.SmbConfigStore
+import tv.music.player.core.smb.SmbDataSource
+import tv.music.player.core.smb.SmbRepository
 import tv.music.player.core.update.UpdateStore
 import tv.music.player.core.settings.lxQuality
+import androidx.media3.datasource.DataSource
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -58,11 +62,15 @@ class AppContainer(context: Context) {
         val quality = settings.settings.first().quality.lxQuality
         resolveStreamUrl(track, quality)
     }
+    val smbConfig = SmbConfigStore(appContext)
+    val smbRepository = SmbRepository()
+    val smbFactory = DataSource.Factory { SmbDataSource(smbConfig, smbRepository) }
     val playback = PlaybackController(
         context = appContext,
         resolveUrl = ::resolveStreamUrl,
         localPath = downloads::pathFor,
         onTrackStarted = library::recordPlayed,
+        smbFactory = smbFactory,
     )
     val companionBridge = CompanionBridge()
     val companion = CompanionServer(appContext, playback, companionBridge)

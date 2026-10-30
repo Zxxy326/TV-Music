@@ -7,10 +7,12 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import tv.music.player.core.smb.PreferredDataSourceFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,6 +50,7 @@ class PlaybackController(
     private val resolveUrl: suspend (track: DemoTrack, preferredQuality: String?) -> String?,
     private val localPath: (DemoTrack) -> String? = { null },
     private val onTrackStarted: (DemoTrack) -> Unit = {},
+    smbFactory: DataSource.Factory? = null,
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -61,14 +64,15 @@ class PlaybackController(
     private var resolveJob: Job? = null
     private var previewRetryDone = false
 
-    private val mediaSourceFactory = DefaultMediaSourceFactory(
-        DefaultDataSource.Factory(
-            appContext,
-            DefaultHttpDataSource.Factory()
-                .setUserAgent(HTTP_UA)
-                .setAllowCrossProtocolRedirects(true)
-        )
-    )
+    private val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+        .setUserAgent(HTTP_UA)
+        .setAllowCrossProtocolRedirects(true)
+    private val dataSourceFactory: DataSource.Factory = if (smbFactory != null) {
+        PreferredDataSourceFactory(appContext, httpDataSourceFactory, smbFactory)
+    } else {
+        DefaultDataSource.Factory(appContext, httpDataSourceFactory)
+    }
+    private val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
     val player: ExoPlayer = ExoPlayer.Builder(appContext, mediaSourceFactory).build()
 
     init {

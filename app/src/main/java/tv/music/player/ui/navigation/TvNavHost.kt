@@ -17,6 +17,8 @@ import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.local.LocalLibraryStore
 import tv.music.player.core.source.SourceMarketStore
+import tv.music.player.core.smb.SmbConfigStore
+import tv.music.player.core.smb.SmbRepository
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.lyrics.LyricsRepository
@@ -30,6 +32,7 @@ import tv.music.player.ui.home.HomeScreen
 import tv.music.player.ui.library.DownloadsScreen
 import tv.music.player.ui.local.DeviceMusicScreen
 import tv.music.player.ui.local.LocalHubScreen
+import tv.music.player.ui.local.SmbScreen
 import tv.music.player.ui.source.SourceMarketScreen
 import tv.music.player.ui.library.LibraryScreen
 import tv.music.player.ui.player.PlayerScreen
@@ -49,6 +52,8 @@ fun TvNavHost(
     companionServer: CompanionServer,
     library: LibraryStore,
     localLibrary: LocalLibraryStore,
+    smbConfig: SmbConfigStore,
+    smbRepository: SmbRepository,
     sourceMarket: SourceMarketStore,
     downloads: DownloadStore,
     updates: UpdateStore,
@@ -129,6 +134,15 @@ fun TvNavHost(
                 navController = navController,
             )
         }
+        composable(TvRoute.Smb.route) {
+            SmbScreen(
+                configStore = smbConfig,
+                repository = smbRepository,
+                localLibrary = localLibrary,
+                playback = playback,
+                navController = navController,
+            )
+        }
         composable(TvRoute.SourceMarket.route) {
             SourceMarketScreen(
                 store = sourceMarket,
@@ -161,6 +175,7 @@ fun TvNavHost(
                 onOpenDeviceMusic = { navController.navigate(TvRoute.DeviceMusic.route) },
                 onOpenDownloads = { navController.navigate(TvRoute.Downloads.route) },
                 onOpenSourceMarket = { navController.navigate(TvRoute.SourceMarket.route) },
+                onOpenSmb = { navController.navigate(TvRoute.Smb.route) },
                 onBack = { navController.popBackStack() },
             )
         }

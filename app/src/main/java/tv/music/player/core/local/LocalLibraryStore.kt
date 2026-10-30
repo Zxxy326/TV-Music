@@ -67,7 +67,7 @@ class LocalLibraryStore(context: Context) {
             _message.value = null
             try {
                 val found = queryMediaStore() + scanSavedTrees()
-                val merged = (found + _tracks.value.filter { it.localSource == SOURCE_SAF })
+                val merged = (found + _tracks.value.filter { it.localSource == SOURCE_SAF || it.localSource == SOURCE_SMB })
                     .distinctBy { it.localUri }
                     .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
                 _tracks.value = merged
@@ -84,6 +84,14 @@ class LocalLibraryStore(context: Context) {
                 _scanning.value = false
             }
         }
+    }
+
+    fun replaceSourceTracks(source: String, tracks: List<DemoTrack>) {
+        val merged = (_tracks.value.filterNot { it.localSource == source } + tracks)
+            .distinctBy { it.localUri }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+        _tracks.value = merged
+        persist(merged)
     }
 
     fun addTree(uri: Uri) {
@@ -246,6 +254,7 @@ class LocalLibraryStore(context: Context) {
         const val KEY_TREES = "tree_uris"
         const val SOURCE_MEDIA = "媒体库"
         const val SOURCE_SAF = "文件夹"
+        const val SOURCE_SMB = "SMB"
         const val MAX_DEPTH = 8
         const val MAX_FILES = 5000
         val AUDIO_EXTENSIONS = listOf(".mp3", ".flac", ".m4a", ".aac", ".ogg", ".wav", ".opus")

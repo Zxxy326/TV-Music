@@ -15,8 +15,8 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = providers.gradleProperty("tvmusic.versionCode").orNull?.toInt() ?: 9
-        versionName = providers.gradleProperty("tvmusic.versionName").orNull ?: "0.9.0"
+        versionCode = providers.gradleProperty("tvmusic.versionCode").orNull?.toInt() ?: 10
+        versionName = providers.gradleProperty("tvmusic.versionName").orNull ?: "0.9.1"
         val manifestUrl = providers.gradleProperty("tvmusic.updateManifest")
             .orElse("https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json")
             .get()
@@ -76,6 +76,7 @@ kotlin {
 dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("androidx.navigation:navigation-compose:2.9.0")
