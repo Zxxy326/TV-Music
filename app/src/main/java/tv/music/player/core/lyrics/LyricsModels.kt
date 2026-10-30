@@ -1,0 +1,38 @@
+package tv.music.player.core.lyrics
+
+data class LyricLine(
+    val timeMs: Long,
+    val text: String,
+    val translation: String? = null,
+)
+
+data class Lyrics(
+    val lines: List<LyricLine> = emptyList(),
+    val instrumental: Boolean = false,
+    val sourceLabel: String = "QQ 音乐",
+) {
+    fun indexAt(positionMs: Long, offsetMs: Long = 0L): Int {
+        if (lines.isEmpty()) return -1
+        val target = positionMs + offsetMs
+        var low = 0
+        var high = lines.lastIndex
+        var result = -1
+        while (low <= high) {
+            val mid = (low + high) ushr 1
+            if (lines[mid].timeMs <= target) {
+                result = mid
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return result
+    }
+}
+
+sealed interface LyricsState {
+    data object Loading : LyricsState
+    data class Ready(val lyrics: Lyrics) : LyricsState
+    data class Unavailable(val message: String) : LyricsState
+    data class Failed(val message: String) : LyricsState
+}

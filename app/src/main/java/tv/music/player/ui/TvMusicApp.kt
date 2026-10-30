@@ -85,6 +85,7 @@ fun TvMusicApp() {
                         playback = container.playback,
                         onlineSearch = container.onlineSearch,
                         lxEngine = container.lxEngine,
+                        lyricsRepository = container.lyrics,
                     )
 
                     if (showMiniBar) {

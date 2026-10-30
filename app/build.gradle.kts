@@ -15,8 +15,8 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     buildTypes {
@@ -85,6 +85,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.10.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.10.3")
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 val lxSourceDir = rootProject.file("音源")

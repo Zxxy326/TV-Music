@@ -11,6 +11,7 @@ import okhttp3.Request
 import kotlinx.coroutines.launch
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
+import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.search.OnlineSearchApi
@@ -26,6 +27,7 @@ class AppContainer(context: Context) {
     val lxFileStore = LxFileStore(appContext)
     val lxEngine = LxJsEngine(lxFileStore)
     val onlineSearch = OnlineSearchApi()
+    val lyrics = LyricsRepository()
 
     val playback = PlaybackController(
         context = appContext,

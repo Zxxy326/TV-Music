@@ -14,6 +14,20 @@ enum class LyricSize(val label: String, val scale: Float) {
     LARGE("大 · 72sp", 1.35f),
 }
 
+enum class LyricStyle(val label: String, val hint: String) {
+    CLASSIC("经典逐行", "当前行放大，上下渐隐"),
+    SUBTITLE("大字幕", "底部两行超大描边字"),
+    MINIMAL("极简纯文字", "纯黑底，无封面无装饰"),
+}
+
+/** 正值表示歌词提前出现。 */
+fun formatLyricOffset(offsetMs: Int): String {
+    if (offsetMs == 0) return "0.0s"
+    val abs = kotlin.math.abs(offsetMs)
+    val seconds = "${abs / 1000}.${(abs % 1000) / 100}s"
+    return if (offsetMs > 0) "提前 $seconds" else "延后 $seconds"
+}
+
 enum class AudioQuality(val label: String) {
     STANDARD("标准"),
     HIGH("高音质"),
@@ -32,6 +46,9 @@ data class AppSettings(
     val animationsEnabled: Boolean = true,
     val blurBackground: Boolean = true,
     val lyricSize: LyricSize = LyricSize.MEDIUM,
+    val lyricStyle: LyricStyle = LyricStyle.CLASSIC,
+    val showLyricTranslation: Boolean = true,
+    val lyricOffsetMs: Int = 0,
     val quality: AudioQuality = AudioQuality.HIGH,
     val gaplessPlayback: Boolean = true,
     val fadeInOut: Boolean = false,

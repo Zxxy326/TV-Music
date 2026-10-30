@@ -31,7 +31,9 @@ import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.scale.LocalTvScale
 import tv.music.player.core.settings.AppSettings
+import tv.music.player.core.settings.LyricStyle
 import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.settings.formatLyricOffset
 import tv.music.player.core.theme.TvColors
 import tv.music.player.core.theme.TvType
 import tv.music.player.ui.components.CapsuleHostState
@@ -259,6 +261,45 @@ private fun buildEntries(
                 },
             ),
             SettingEntry.Choice(
+                key = "lyricStyle",
+                title = "歌词样式",
+                subtitle = "经典逐行 / 大字幕 / 极简纯文字，播放页按 MENU 也可切换",
+                value = settings.lyricStyle.label,
+                onNext = {
+                    val next = settings.lyricStyle.next()
+                    save("歌词样式：${next.label}") { repository.setLyricStyle(next) }
+                },
+                onPrevious = {
+                    val previous = settings.lyricStyle.previous()
+                    save("歌词样式：${previous.label}") { repository.setLyricStyle(previous) }
+                },
+            ),
+            SettingEntry.Toggle(
+                key = "lyricTranslation",
+                title = "歌词翻译",
+                subtitle = "QQ 歌词自带翻译时显示在副行",
+                checked = settings.showLyricTranslation,
+                onToggle = {
+                    save(if (settings.showLyricTranslation) "已隐藏歌词翻译" else "已显示歌词翻译") {
+                        repository.setShowLyricTranslation(!settings.showLyricTranslation)
+                    }
+                },
+            ),
+            SettingEntry.Choice(
+                key = "lyricOffset",
+                title = "歌词偏移",
+                subtitle = "±0.5s 步进、范围 ±5s；正值歌词提前",
+                value = formatLyricOffset(settings.lyricOffsetMs),
+                onNext = {
+                    val next = (settings.lyricOffsetMs + 500).coerceIn(-5_000, 5_000)
+                    save("歌词偏移：${formatLyricOffset(next)}") { repository.setLyricOffset(next) }
+                },
+                onPrevious = {
+                    val previous = (settings.lyricOffsetMs - 500).coerceIn(-5_000, 5_000)
+                    save("歌词偏移：${formatLyricOffset(previous)}") { repository.setLyricOffset(previous) }
+                },
+            ),
+            SettingEntry.Choice(
                 key = "lyricSize",
                 title = "歌词字号",
                 subtitle = "当前行字号 5 档中的 3 档预览",
@@ -273,18 +314,11 @@ private fun buildEntries(
                 },
             ),
             SettingEntry.Action(
-                key = "styleWheel",
-                title = "歌词样式轮盘",
-                subtitle = "11 种样式的实时预览与切换",
-                value = "M2",
-                onClick = { capsule.show("歌词样式轮盘将在 M2 接入") },
-            ),
-            SettingEntry.Action(
                 key = "playerLayout",
                 title = "播放页布局",
                 subtitle = "全屏歌词 / 左封面右歌词",
                 value = "布局 A",
-                onClick = { capsule.show("布局 B（左封面右歌词）将在 M2 接入") },
+                onClick = { capsule.show("布局 B（左封面右歌词）将在 M2b 接入") },
             ),
         )
 
@@ -439,7 +473,7 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M1a",
+                value = "${BuildConfig.VERSION_NAME} · M2a",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

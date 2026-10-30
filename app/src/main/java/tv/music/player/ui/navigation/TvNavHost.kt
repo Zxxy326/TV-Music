@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import tv.music.player.core.lx.LxJsEngine
+import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.settings.AppSettings
@@ -28,6 +29,7 @@ fun TvNavHost(
     playback: PlaybackController,
     onlineSearch: OnlineSearchApi,
     lxEngine: LxJsEngine,
+    lyricsRepository: LyricsRepository,
 ) {
     NavHost(
         navController = navController,
@@ -51,6 +53,8 @@ fun TvNavHost(
             PlayerScreen(
                 playback = playback,
                 settings = settings,
+                settingsRepository = settingsRepository,
+                lyricsRepository = lyricsRepository,
                 onBack = { navController.popBackStack() },
             )
         }

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,9 @@ class SettingsRepository(private val context: Context) {
         val animations = booleanPreferencesKey("animations")
         val blur = booleanPreferencesKey("blur_background")
         val lyricSize = stringPreferencesKey("lyric_size")
+        val lyricStyle = stringPreferencesKey("lyric_style")
+        val lyricTranslation = booleanPreferencesKey("lyric_translation")
+        val lyricOffset = intPreferencesKey("lyric_offset_ms")
         val quality = stringPreferencesKey("quality")
         val gapless = booleanPreferencesKey("gapless")
         val fade = booleanPreferencesKey("fade_in_out")
@@ -38,6 +42,10 @@ class SettingsRepository(private val context: Context) {
                 animationsEnabled = prefs[Keys.animations] ?: defaults.animationsEnabled,
                 blurBackground = prefs[Keys.blur] ?: defaults.blurBackground,
                 lyricSize = prefs[Keys.lyricSize].toEnumOr(defaults.lyricSize),
+                lyricStyle = prefs[Keys.lyricStyle].toEnumOr(defaults.lyricStyle),
+                showLyricTranslation = prefs[Keys.lyricTranslation] ?: defaults.showLyricTranslation,
+                lyricOffsetMs = (prefs[Keys.lyricOffset] ?: defaults.lyricOffsetMs)
+                    .coerceIn(-5_000, 5_000),
                 quality = prefs[Keys.quality].toEnumOr(defaults.quality),
                 gaplessPlayback = prefs[Keys.gapless] ?: defaults.gaplessPlayback,
                 fadeInOut = prefs[Keys.fade] ?: defaults.fadeInOut,
@@ -50,6 +58,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAnimationsEnabled(enabled: Boolean) = put(Keys.animations, enabled)
     suspend fun setBlurBackground(enabled: Boolean) = put(Keys.blur, enabled)
     suspend fun setLyricSize(size: LyricSize) = put(Keys.lyricSize, size.name)
+    suspend fun setLyricStyle(style: LyricStyle) = put(Keys.lyricStyle, style.name)
+    suspend fun setShowLyricTranslation(enabled: Boolean) = put(Keys.lyricTranslation, enabled)
+    suspend fun setLyricOffset(offsetMs: Int) = put(Keys.lyricOffset, offsetMs.coerceIn(-5_000, 5_000))
     suspend fun setQuality(quality: AudioQuality) = put(Keys.quality, quality.name)
     suspend fun setGapless(enabled: Boolean) = put(Keys.gapless, enabled)
     suspend fun setFadeInOut(enabled: Boolean) = put(Keys.fade, enabled)
