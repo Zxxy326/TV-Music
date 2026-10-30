@@ -32,6 +32,7 @@ import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.scale.LocalTvScale
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.LyricStyle
+import tv.music.player.core.settings.PlayerLayout
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.settings.formatLyricOffset
 import tv.music.player.core.theme.TvColors
@@ -263,7 +264,7 @@ private fun buildEntries(
             SettingEntry.Choice(
                 key = "lyricStyle",
                 title = "歌词样式",
-                subtitle = "经典 / 大字幕 / 极简 / 卡拉OK / 气泡 / 双语，按 MENU 也可切换",
+                subtitle = "8 种样式：经典 / 字幕 / 极简 / 扫色 / 气泡 / 双语 / 黑胶 / 沉浸",
                 value = settings.lyricStyle.label,
                 onNext = {
                     val next = settings.lyricStyle.next()
@@ -313,12 +314,19 @@ private fun buildEntries(
                     save("歌词字号：${previous.label}") { repository.setLyricSize(previous) }
                 },
             ),
-            SettingEntry.Action(
+            SettingEntry.Choice(
                 key = "playerLayout",
                 title = "播放页布局",
-                subtitle = "全屏歌词 / 左封面右歌词",
-                value = "布局 A",
-                onClick = { capsule.show("布局 B（左封面右歌词）将在 M2b 接入") },
+                subtitle = "全屏歌词 / 左封面右歌词；黑胶、沉浸与极简样式强制全屏",
+                value = settings.playerLayout.label,
+                onNext = {
+                    val next = if (settings.playerLayout == PlayerLayout.CENTERED) PlayerLayout.SPLIT else PlayerLayout.CENTERED
+                    save("播放布局：${next.label}") { repository.setPlayerLayout(next) }
+                },
+                onPrevious = {
+                    val previous = if (settings.playerLayout == PlayerLayout.CENTERED) PlayerLayout.SPLIT else PlayerLayout.CENTERED
+                    save("播放布局：${previous.label}") { repository.setPlayerLayout(previous) }
+                },
             ),
         )
 

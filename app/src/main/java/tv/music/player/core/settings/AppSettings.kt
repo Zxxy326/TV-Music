@@ -14,13 +14,24 @@ enum class LyricSize(val label: String, val scale: Float) {
     LARGE("大 · 72sp", 1.35f),
 }
 
-enum class LyricStyle(val label: String, val hint: String) {
+enum class LyricStyle(
+    val label: String,
+    val hint: String,
+    val supportsSplit: Boolean = true,
+) {
     CLASSIC("经典逐行", "当前行放大，上下渐隐"),
     SUBTITLE("大字幕", "底部两行超大描边字"),
-    MINIMAL("极简纯文字", "纯黑底，无封面无装饰"),
+    MINIMAL("极简纯文字", "纯黑底，无封面无装饰", supportsSplit = false),
     KARAOKE("卡拉OK扫色", "逐字亮起，未唱部分保持灰色"),
     BOUNCE("弹跳气泡", "逐字弹性跳动，带圆角气泡"),
     BILINGUAL("双语对照", "主词扫色，翻译副行同步高亮"),
+    VINYL("黑胶唱片", "旋转唱片，右侧歌词", supportsSplit = false),
+    IMMERSIVE("沉浸光晕", "全屏封面与悬浮大字", supportsSplit = false),
+}
+
+enum class PlayerLayout(val label: String) {
+    CENTERED("布局 A · 全屏歌词"),
+    SPLIT("布局 B · 左封面右歌词"),
 }
 
 /** 正值表示歌词提前出现。 */
@@ -52,6 +63,7 @@ data class AppSettings(
     val lyricStyle: LyricStyle = LyricStyle.CLASSIC,
     val showLyricTranslation: Boolean = true,
     val lyricOffsetMs: Int = 0,
+    val playerLayout: PlayerLayout = PlayerLayout.CENTERED,
     val quality: AudioQuality = AudioQuality.HIGH,
     val gaplessPlayback: Boolean = true,
     val fadeInOut: Boolean = false,

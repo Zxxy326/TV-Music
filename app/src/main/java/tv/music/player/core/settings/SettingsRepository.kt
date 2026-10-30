@@ -26,6 +26,7 @@ class SettingsRepository(private val context: Context) {
         val lyricStyle = stringPreferencesKey("lyric_style")
         val lyricTranslation = booleanPreferencesKey("lyric_translation")
         val lyricOffset = intPreferencesKey("lyric_offset_ms")
+        val playerLayout = stringPreferencesKey("player_layout")
         val quality = stringPreferencesKey("quality")
         val gapless = booleanPreferencesKey("gapless")
         val fade = booleanPreferencesKey("fade_in_out")
@@ -46,6 +47,7 @@ class SettingsRepository(private val context: Context) {
                 showLyricTranslation = prefs[Keys.lyricTranslation] ?: defaults.showLyricTranslation,
                 lyricOffsetMs = (prefs[Keys.lyricOffset] ?: defaults.lyricOffsetMs)
                     .coerceIn(-5_000, 5_000),
+                playerLayout = prefs[Keys.playerLayout].toEnumOr(defaults.playerLayout),
                 quality = prefs[Keys.quality].toEnumOr(defaults.quality),
                 gaplessPlayback = prefs[Keys.gapless] ?: defaults.gaplessPlayback,
                 fadeInOut = prefs[Keys.fade] ?: defaults.fadeInOut,
@@ -61,6 +63,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLyricStyle(style: LyricStyle) = put(Keys.lyricStyle, style.name)
     suspend fun setShowLyricTranslation(enabled: Boolean) = put(Keys.lyricTranslation, enabled)
     suspend fun setLyricOffset(offsetMs: Int) = put(Keys.lyricOffset, offsetMs.coerceIn(-5_000, 5_000))
+    suspend fun setPlayerLayout(layout: PlayerLayout) = put(Keys.playerLayout, layout.name)
     suspend fun setQuality(quality: AudioQuality) = put(Keys.quality, quality.name)
     suspend fun setGapless(enabled: Boolean) = put(Keys.gapless, enabled)
     suspend fun setFadeInOut(enabled: Boolean) = put(Keys.fade, enabled)

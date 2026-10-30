@@ -11,12 +11,15 @@ import okhttp3.Request
 import kotlinx.coroutines.launch
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
+import tv.music.player.core.lyrics.LyricsDiskCache
+import tv.music.player.core.lyrics.LyricsMatchStore
 import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.settings.lxQuality
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class AppContainer(context: Context) {
@@ -27,7 +30,11 @@ class AppContainer(context: Context) {
     val lxFileStore = LxFileStore(appContext)
     val lxEngine = LxJsEngine(lxFileStore)
     val onlineSearch = OnlineSearchApi()
-    val lyrics = LyricsRepository()
+    val lyrics = LyricsRepository(
+        diskCache = LyricsDiskCache(File(appContext.cacheDir, "lyrics")),
+        matchStore = LyricsMatchStore(appContext),
+        searchApi = onlineSearch,
+    )
 
     val playback = PlaybackController(
         context = appContext,
