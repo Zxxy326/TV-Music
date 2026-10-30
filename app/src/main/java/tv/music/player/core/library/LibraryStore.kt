@@ -10,8 +10,11 @@ import tv.music.player.core.search.encodeTracks
 import java.io.File
 import java.util.concurrent.Executors
 
-fun DemoTrack.libraryKey(): String =
-    if (isOnline) "online:$onlineSource:$onlineSongId" else "demo:$id"
+fun DemoTrack.libraryKey(): String = when {
+    localUri.isNotBlank() -> "local:$localUri"
+    isOnline -> "online:$onlineSource:$onlineSongId"
+    else -> "demo:$id"
+}
 
 class LibraryStore(context: Context) {
     private val dir = File(context.applicationContext.filesDir, "library").also { it.mkdirs() }

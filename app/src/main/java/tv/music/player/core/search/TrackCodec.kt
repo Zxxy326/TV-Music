@@ -18,6 +18,8 @@ fun DemoTrack.toJsonObject(): JSONObject = JSONObject().apply {
     put("onlineAlbumMid", onlineAlbumMid)
     put("onlineStrMediaMid", onlineStrMediaMid)
     put("onlineSongNumericId", onlineSongNumericId)
+    put("localUri", localUri)
+    put("localSource", localSource)
 }
 
 fun JSONObject.toDemoTrack(): DemoTrack = DemoTrack(
@@ -34,6 +36,8 @@ fun JSONObject.toDemoTrack(): DemoTrack = DemoTrack(
     onlineAlbumMid = optString("onlineAlbumMid"),
     onlineStrMediaMid = optString("onlineStrMediaMid"),
     onlineSongNumericId = optLong("onlineSongNumericId"),
+    localUri = optString("localUri"),
+    localSource = optString("localSource"),
 )
 
 fun List<DemoTrack>.encodeTracks(): String {

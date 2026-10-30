@@ -14,8 +14,12 @@ data class DemoTrack(
     val onlineAlbumMid: String = "",
     val onlineStrMediaMid: String = "",
     val onlineSongNumericId: Long = 0L,
+    val localUri: String = "",
+    val localSource: String = "",
 ) {
     val isOnline: Boolean get() = onlineSource.isNotBlank()
+    val isLocal: Boolean get() = localUri.isNotBlank()
+    val usesPlayer: Boolean get() = isOnline || isLocal
 }
 
 data class LyricLine(val timeMs: Long, val text: String)

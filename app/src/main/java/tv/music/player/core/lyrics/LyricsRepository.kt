@@ -16,6 +16,9 @@ class LyricsRepository(
     private val cache = object : LruCache<String, Lyrics>(24) {}
 
     suspend fun load(track: DemoTrack, forceRefresh: Boolean = false): LyricsState = withContext(Dispatchers.IO) {
+        if (track.isLocal) {
+            return@withContext LyricsState.Unavailable("本地歌曲暂无歌词")
+        }
         if (!track.isOnline) {
             val demo = Lyrics(
                 lines = DemoCatalog.lyrics.map { LyricLine(it.timeMs, it.text) },

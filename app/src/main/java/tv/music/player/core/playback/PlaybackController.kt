@@ -83,20 +83,20 @@ class PlaybackController(
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 val snapshot = _state.value
-                if (snapshot.track.isOnline) {
+                if (snapshot.track.usesPlayer) {
                     _state.value = snapshot.copy(isPlaying = isPlaying)
                 }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 val snapshot = _state.value
-                if (!snapshot.track.isOnline) return
+                if (!snapshot.track.usesPlayer) return
                 when (playbackState) {
                     Player.STATE_BUFFERING ->
                         _state.value = snapshot.copy(buffering = true)
                     Player.STATE_READY -> {
                         val duration = player.duration.takeIf { it > 0L && it != C.TIME_UNSET }
-                        if (localFileFor(snapshot.track) == null && !previewRetryDone && duration != null &&
+                        if (snapshot.track.localUri.isBlank() && localFileFor(snapshot.track) == null && !previewRetryDone && duration != null &&
                             snapshot.track.durationMs > 0L && duration < snapshot.track.durationMs * 0.75
                         ) {
                             previewRetryDone = true
@@ -124,7 +124,7 @@ class PlaybackController(
 
     fun toggle() {
         val snapshot = _state.value
-        if (snapshot.track.isOnline) {
+        if (snapshot.track.usesPlayer) {
             if (player.playbackState == Player.STATE_IDLE || player.mediaItemCount == 0) {
                 play(snapshot.track, snapshot.queue)
             } else if (player.isPlaying) {
@@ -144,14 +144,19 @@ class PlaybackController(
         previewRetryDone = false
         stopTicker()
         val localFile = localFileFor(track)
+        val localUri = track.localUri.takeIf { it.isNotBlank() }
         _state.value = _state.value.copy(
             track = track,
             queue = queue,
             positionMs = 0L,
             resolvedDurationMs = 0L,
-            buffering = track.isOnline && localFile == null,
+            buffering = track.isOnline && localFile == null && localUri == null,
             isPlaying = false,
         )
+        if (localUri != null) {
+            startLocalUri(track, localUri)
+            return
+        }
         if (localFile != null) {
             startLocalFile(track, localFile)
             return
@@ -194,25 +199,29 @@ class PlaybackController(
         player.prepare()
         player.playWhenReady = true
         _state.value = _state.value.copy(buffering = false)
-        startOnlineTicker()
+        startPlayerTicker()
         onTrackStarted(track)
     }
 
     private fun startLocalFile(track: DemoTrack, file: File) {
+        startLocalUri(track, Uri.fromFile(file).toString())
+    }
+
+    private fun startLocalUri(track: DemoTrack, uri: String) {
         player.stop()
         player.clearMediaItems()
-        player.setMediaItem(buildMediaItem(track, Uri.fromFile(file).toString()))
+        player.setMediaItem(buildMediaItem(track, uri))
         player.prepare()
         player.playWhenReady = true
         _state.value = _state.value.copy(buffering = false, isPlaying = true)
-        startOnlineTicker()
+        startPlayerTicker()
         onTrackStarted(track)
     }
 
     private fun buildMediaItem(track: DemoTrack, uri: String): MediaItem =
         MediaItem.Builder()
             .setUri(uri)
-            .setMediaId(track.onlineSongId)
+            .setMediaId(track.onlineSongId.ifBlank { "local:${track.id}" })
             .setMediaMetadata(
                 androidx.media3.common.MediaMetadata.Builder()
                     .setTitle(track.title)
@@ -240,7 +249,7 @@ class PlaybackController(
     fun previous() {
         val snapshot = _state.value
         if (snapshot.positionMs > 4_000L) {
-            if (snapshot.track.isOnline) player.seekTo(0L)
+            if (snapshot.track.usesPlayer) player.seekTo(0L)
             _state.value = snapshot.copy(positionMs = 0L)
             return
         }
@@ -253,7 +262,7 @@ class PlaybackController(
     fun seekBy(deltaMs: Long) {
         val snapshot = _state.value
         val target = (snapshot.positionMs + deltaMs).coerceIn(0L, snapshot.durationMs)
-        if (snapshot.track.isOnline) {
+        if (snapshot.track.usesPlayer) {
             player.seekTo(target)
         }
         _state.value = snapshot.copy(positionMs = target)
@@ -262,7 +271,7 @@ class PlaybackController(
     fun seekTo(positionMs: Long) {
         val snapshot = _state.value
         val target = positionMs.coerceIn(0L, snapshot.durationMs)
-        if (snapshot.track.isOnline) {
+        if (snapshot.track.usesPlayer) {
             player.seekTo(target)
         }
         _state.value = snapshot.copy(positionMs = target)
@@ -276,7 +285,7 @@ class PlaybackController(
             while (isActive) {
                 delay(250L)
                 val snapshot = _state.value
-                if (!snapshot.isPlaying || snapshot.track.isOnline) break
+                if (!snapshot.isPlaying || snapshot.track.usesPlayer) break
                 val position = snapshot.positionMs + 250L
                 if (position >= snapshot.durationMs) {
                     next()
@@ -287,13 +296,13 @@ class PlaybackController(
         }
     }
 
-    private fun startOnlineTicker() {
+    private fun startPlayerTicker() {
         ticker?.cancel()
         ticker = scope.launch {
             while (isActive) {
                 delay(400L)
                 val snapshot = _state.value
-                if (!snapshot.track.isOnline) break
+                if (!snapshot.track.usesPlayer) break
                 val duration = player.duration.takeIf { it > 0L && it != C.TIME_UNSET }
                     ?: snapshot.resolvedDurationMs
                 _state.value = snapshot.copy(

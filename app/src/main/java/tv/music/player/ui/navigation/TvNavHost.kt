@@ -15,6 +15,8 @@ import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
+import tv.music.player.core.local.LocalLibraryStore
+import tv.music.player.core.source.SourceMarketStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.lyrics.LyricsRepository
@@ -26,6 +28,9 @@ import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.update.UpdateStore
 import tv.music.player.ui.home.HomeScreen
 import tv.music.player.ui.library.DownloadsScreen
+import tv.music.player.ui.local.DeviceMusicScreen
+import tv.music.player.ui.local.LocalHubScreen
+import tv.music.player.ui.source.SourceMarketScreen
 import tv.music.player.ui.library.LibraryScreen
 import tv.music.player.ui.player.PlayerScreen
 import tv.music.player.ui.search.SearchScreen
@@ -43,6 +48,8 @@ fun TvNavHost(
     companionBridge: CompanionBridge,
     companionServer: CompanionServer,
     library: LibraryStore,
+    localLibrary: LocalLibraryStore,
+    sourceMarket: SourceMarketStore,
     downloads: DownloadStore,
     updates: UpdateStore,
     lxEngine: LxJsEngine,
@@ -108,6 +115,26 @@ fun TvNavHost(
                 navController = navController,
             )
         }
+        composable(TvRoute.LocalHub.route) {
+            LocalHubScreen(
+                localLibrary = localLibrary,
+                downloads = downloads,
+                navController = navController,
+            )
+        }
+        composable(TvRoute.DeviceMusic.route) {
+            DeviceMusicScreen(
+                localLibrary = localLibrary,
+                playback = playback,
+                navController = navController,
+            )
+        }
+        composable(TvRoute.SourceMarket.route) {
+            SourceMarketScreen(
+                store = sourceMarket,
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(TvRoute.Downloads.route) {
             DownloadsScreen(
                 downloads = downloads,
@@ -131,6 +158,9 @@ fun TvNavHost(
                 onlineSearch = onlineSearch,
                 companionServer = companionServer,
                 updateStore = updates,
+                onOpenDeviceMusic = { navController.navigate(TvRoute.DeviceMusic.route) },
+                onOpenDownloads = { navController.navigate(TvRoute.Downloads.route) },
+                onOpenSourceMarket = { navController.navigate(TvRoute.SourceMarket.route) },
                 onBack = { navController.popBackStack() },
             )
         }

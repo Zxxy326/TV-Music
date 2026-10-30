@@ -109,6 +109,9 @@ fun SettingsGroupScreen(
     onlineSearch: OnlineSearchApi,
     companionServer: CompanionServer,
     updateStore: UpdateStore,
+    onOpenDeviceMusic: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSourceMarket: () -> Unit,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -118,7 +121,18 @@ fun SettingsGroupScreen(
     val context = LocalContext.current
     val scale = LocalTvScale.current
     var lxRefreshToken by remember { mutableIntStateOf(0) }
-    val entries = buildEntries(groupId, settings, settingsRepository, scope, capsule, context, scale)
+    val entries = buildEntries(
+        groupId = groupId,
+        settings = settings,
+        repository = settingsRepository,
+        scope = scope,
+        capsule = capsule,
+        context = context,
+        scale = scale,
+        onOpenDeviceMusic = onOpenDeviceMusic,
+        onOpenDownloads = onOpenDownloads,
+        onOpenSourceMarket = onOpenSourceMarket,
+    )
     val firstFocusKey = when (groupId) {
         "companion" -> "companion:toggle"
         "update" -> "update:check"
@@ -309,6 +323,9 @@ private fun buildEntries(
     capsule: CapsuleHostState,
     context: Context,
     scale: Float,
+    onOpenDeviceMusic: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSourceMarket: () -> Unit,
 ): List<SettingEntry> {
 
     fun save(message: String, block: suspend () -> Unit) {
@@ -480,9 +497,9 @@ private fun buildEntries(
             SettingEntry.Action(
                 key = "market",
                 title = "音源市场",
-                subtitle = "远程清单、URL 安装、sha256 校验",
-                value = "M4",
-                onClick = { capsule.show("音源市场将在 M4 接入") },
+                subtitle = "远程清单、SHA-256 校验、一键安装",
+                value = "已接入",
+                onClick = onOpenSourceMarket,
             ),
             SettingEntry.Info(
                 key = "scriptDir",
@@ -518,24 +535,25 @@ private fun buildEntries(
 
         "local" -> listOf(
             SettingEntry.Action(
-                key = "usbScan",
-                title = "扫描 USB / 外接盘",
-                subtitle = "MediaStore + SAF 递归扫描，增量索引",
-                value = "M4",
-                onClick = { capsule.show("USB 扫描将在 M4 接入") },
+                key = "deviceMusic",
+                title = "设备歌曲",
+                subtitle = "MediaStore 扫描 + U 盘 / 文件夹导入",
+                value = "已接入",
+                onClick = onOpenDeviceMusic,
+            ),
+            SettingEntry.Action(
+                key = "downloads",
+                title = "下载管理",
+                subtitle = "已下载歌曲 · 断网也能播放",
+                value = "已接入",
+                onClick = onOpenDownloads,
             ),
             SettingEntry.Action(
                 key = "smb",
                 title = "添加 SMB 共享",
-                subtitle = "jcifs-ng，凭据用手机伴侣录入",
+                subtitle = "jcifs-ng 直连 NAS，凭据加密保存",
                 value = "M4",
                 onClick = { capsule.show("SMB 挂载将在 M4 接入") },
-            ),
-            SettingEntry.Info(
-                key = "lastScan",
-                title = "上次扫描",
-                value = "尚未扫描",
-                subtitle = "索引保存在 Room 数据库",
             ),
         )
 

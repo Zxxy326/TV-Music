@@ -18,6 +18,7 @@ import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
+import tv.music.player.core.local.LocalLibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.lyrics.LyricsDiskCache
@@ -29,6 +30,7 @@ import tv.music.player.core.playback.PlaybackService
 import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.source.SourceMarketStore
 import tv.music.player.core.update.UpdateStore
 import tv.music.player.core.settings.lxQuality
 import java.io.File
@@ -50,6 +52,8 @@ class AppContainer(context: Context) {
     )
 
     val library = LibraryStore(appContext)
+    val localLibrary = LocalLibraryStore(appContext)
+    val sourceMarket = SourceMarketStore(appContext, lxFileStore, lxEngine)
     val downloads = DownloadStore(appContext) { track ->
         val quality = settings.settings.first().quality.lxQuality
         resolveStreamUrl(track, quality)

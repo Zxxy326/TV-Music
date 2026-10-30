@@ -262,7 +262,7 @@ fun HomeScreen(
                     onFavorites = { navController.navigate(TvRoute.Favorites.route) },
                     onRecent = { navController.navigate(TvRoute.Recent.route) },
                     onSources = { navController.navigate(TvRoute.SettingsGroup.of("sources")) },
-                    onLocal = { navController.navigate(TvRoute.Downloads.route) },
+                    onLocal = { navController.navigate(TvRoute.LocalHub.route) },
                 )
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(
