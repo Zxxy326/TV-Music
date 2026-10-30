@@ -20,6 +20,13 @@ enum class AudioQuality(val label: String) {
     LOSSLESS("无损"),
 }
 
+val AudioQuality.lxQuality: String
+    get() = when (this) {
+        AudioQuality.STANDARD -> "128k"
+        AudioQuality.HIGH -> "320k"
+        AudioQuality.LOSSLESS -> "flac"
+    }
+
 data class AppSettings(
     val accentMode: AccentMode = AccentMode.COVER,
     val animationsEnabled: Boolean = true,

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -57,6 +58,9 @@ fun TvMusicApp() {
 
     val navController = rememberNavController()
     val capsuleHost = rememberCapsuleHostState()
+    LaunchedEffect(container.playback) {
+        container.playback.errors.collect { capsuleHost.show(it) }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
     val homeGroup = remember { TvFocusRegistry.group("home") }
@@ -79,6 +83,8 @@ fun TvMusicApp() {
                         settings = settings,
                         settingsRepository = container.settings,
                         playback = container.playback,
+                        onlineSearch = container.onlineSearch,
+                        lxEngine = container.lxEngine,
                     )
 
                     if (showMiniBar) {

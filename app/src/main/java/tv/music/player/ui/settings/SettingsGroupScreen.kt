@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import tv.music.player.BuildConfig
 import tv.music.player.core.crash.CrashLogger
 import tv.music.player.core.focus.rememberTvFocusGroup
+import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.scale.LocalTvScale
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
@@ -87,6 +88,7 @@ fun SettingsGroupScreen(
     groupId: String,
     settings: AppSettings,
     settingsRepository: SettingsRepository,
+    lxEngine: LxJsEngine,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -129,6 +131,11 @@ fun SettingsGroupScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 88.dp),
             ) {
+                if (groupId == "sources") {
+                    item(key = "lx-sources-card") {
+                        LxSourcesCard(lxEngine = lxEngine, group = group, capsule = capsule)
+                    }
+                }
                 items(entries, key = { it.key }) { entry ->
                     when (entry) {
                         is SettingEntry.Toggle -> SettingRow(
@@ -276,7 +283,7 @@ private fun buildEntries(
                 key = "playerLayout",
                 title = "播放页布局",
                 subtitle = "全屏歌词 / 左封面右歌词",
-                value = "布局 A · M0",
+                value = "布局 A",
                 onClick = { capsule.show("布局 B（左封面右歌词）将在 M2 接入") },
             ),
         )
@@ -332,18 +339,6 @@ private fun buildEntries(
         )
 
         "sources" -> listOf(
-            SettingEntry.Info(
-                key = "installed",
-                title = "已安装脚本",
-                value = "0 个",
-                subtitle = "导入、启停与排序在 M1 接入",
-            ),
-            SettingEntry.Info(
-                key = "builtin",
-                title = "内置脚本",
-                value = "全豆要聚合 v9.3",
-                subtitle = "首次启动加载 · 开源构建默认不带脚本",
-            ),
             SettingEntry.Action(
                 key = "market",
                 title = "音源市场",
@@ -444,7 +439,7 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M0",
+                value = "${BuildConfig.VERSION_NAME} · M1a",
                 subtitle = "骨架与焦点系统",
             ),
             SettingEntry.Info(

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,9 +54,13 @@ import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.playback.DemoCatalog
-import tv.music.player.core.playback.DemoPlaybackController
+import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.playback.formatDuration
+import tv.music.player.core.search.OnlineSearchApi
+import tv.music.player.core.search.decodeTracks
+import tv.music.player.core.search.encodeTracks
+import tv.music.player.core.search.toDemoTrack
 import tv.music.player.core.theme.LocalTvAccent
 import tv.music.player.core.theme.TvColors
 import tv.music.player.core.theme.TvType
@@ -73,7 +78,8 @@ import tv.music.player.ui.navigation.TvRoute
 
 @Composable
 fun SearchScreen(
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
+    onlineSearch: OnlineSearchApi,
     navController: NavHostController,
 ) {
     val group = rememberTvFocusGroup("search")
@@ -81,10 +87,9 @@ fun SearchScreen(
     val scope = rememberCoroutineScope()
 
     var query by rememberSaveable { mutableStateOf("") }
-    var resultIds by rememberSaveable { mutableStateOf<List<Int>?>(null) }
-    val results = remember(resultIds) {
-        resultIds?.mapNotNull { id -> DemoCatalog.tracks.firstOrNull { it.id == id } }
-    }
+    var resultsJson by rememberSaveable { mutableStateOf<String?>(null) }
+    val results = remember(resultsJson) { decodeTracks(resultsJson) }
+    var total by rememberSaveable { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
     val history = remember { mutableStateListOf("夜航星", "晴天") }
 
@@ -98,12 +103,12 @@ fun SearchScreen(
     fun append(chars: String) {
         if (query.length >= 24) return
         query += chars
-        if (resultIds != null) resultIds = null
+        if (resultsJson != null) resultsJson = null
     }
 
     fun backspace() {
         if (query.isNotEmpty()) query = query.dropLast(1)
-        if (resultIds != null) resultIds = null
+        if (resultsJson != null) resultsJson = null
     }
 
     fun runSearch() {
@@ -115,18 +120,26 @@ fun SearchScreen(
         history.remove(term)
         history.add(0, term)
         while (history.size > 4) history.removeAt(history.lastIndex)
-        resultIds = null
+        resultsJson = null
+        total = 0
         loading = true
         scope.launch {
-            delay(650)
-            val matched = DemoCatalog.tracks.filter {
-                it.title.contains(term, ignoreCase = true) || it.artist.contains(term, ignoreCase = true)
-            }
-            resultIds = matched.ifEmpty { DemoCatalog.tracks.take(4) }.map { it.id }
+            val result = runCatching { onlineSearch.search(term, 1, 30) }
             loading = false
-            delay(60)
-            group.focus("results:0")
-            capsule.show("M0 演示结果 · 真实搜索在 M1 接入")
+            result.onSuccess { searchResult ->
+                val tracks = searchResult.list.map { it.toDemoTrack() }
+                resultsJson = tracks.encodeTracks()
+                total = searchResult.total
+                if (tracks.isEmpty()) {
+                    capsule.show("没有找到「$term」")
+                } else {
+                    delay(60)
+                    group.focus("results:0")
+                    capsule.show("QQ 音乐 · 找到 ${searchResult.total} 首")
+                }
+            }.onFailure {
+                capsule.show("搜索失败，请检查网络后重试")
+            }
         }
     }
 
@@ -141,7 +154,8 @@ fun SearchScreen(
     }
 
     val playTrack: (DemoTrack) -> Unit = { track ->
-        playback.play(track)
+        playback.play(track, results.orEmpty())
+        capsule.show("正在解析音源…")
         navController.navigate(TvRoute.Player.route) { launchSingleTop = true }
     }
 
@@ -172,7 +186,7 @@ fun SearchScreen(
             Column(Modifier.fillMaxSize()) {
                 ScreenHeader(
                     title = "搜索",
-                    subtitle = "T9 九宫格 · 数字键直接输入 · 拼音词典 M1 接入",
+                    subtitle = "T9 九宫格 · 数字键直接输入 · QQ 音乐在线搜索",
                     group = group,
                     onBack = { navController.popBackStack() },
                     trailing = {
@@ -194,7 +208,7 @@ fun SearchScreen(
                             group = group,
                             onPick = {
                                 query = it
-                                resultIds = null
+                                resultsJson = null
                                 runSearch()
                             },
                         )
@@ -203,7 +217,7 @@ fun SearchScreen(
                             history = history,
                             onPick = {
                                 query = it
-                                resultIds = null
+                                resultsJson = null
                                 runSearch()
                             },
                             onClear = {
@@ -212,7 +226,7 @@ fun SearchScreen(
                             },
                         )
                         Text(
-                            "M0 阶段：输入的字符会实时显示；M1 接入拼音首字母/全拼词典与 LX 音源搜索。",
+                            "输入后按搜索：QQ 音乐提供元数据，本机 LX 音源脚本解析播放地址。",
                             style = TvType.caption,
                             color = TvColors.TextTertiary,
                         )
@@ -222,10 +236,11 @@ fun SearchScreen(
                         when {
                             loading -> LoadingResults()
                             results != null -> ResultsPanel(
-                                tracks = results.orEmpty(),
+                                tracks = results,
+                                total = total,
                                 group = group,
                                 onBackToKeyboard = {
-                                    resultIds = null
+                                    resultsJson = null
                                     group.focus("t9:0")
                                 },
                                 onPlay = playTrack,
@@ -236,7 +251,7 @@ fun SearchScreen(
                                 onBackspace = ::backspace,
                                 onClear = {
                                     query = ""
-                                    resultIds = null
+                                    resultsJson = null
                                 },
                                 onSearch = ::runSearch,
                             )
@@ -287,7 +302,7 @@ private fun HotWords(group: TvFocusGroup, onPick: (String) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("热搜", style = TvType.title, color = TvColors.TextPrimary)
             Spacer(Modifier.width(8.dp))
-            Text("LX 源热词 · 演示", style = TvType.caption, color = TvColors.TextTertiary)
+            Text("热门搜索", style = TvType.caption, color = TvColors.TextTertiary)
         }
         DemoCatalog.hotWords.chunked(4).forEachIndexed { rowIndex, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -497,6 +512,7 @@ private fun T9Button(
 @Composable
 private fun ResultsPanel(
     tracks: List<DemoTrack>,
+    total: Int,
     group: TvFocusGroup,
     onBackToKeyboard: () -> Unit,
     onPlay: (DemoTrack) -> Unit,
@@ -505,7 +521,12 @@ private fun ResultsPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("搜索结果", style = TvType.title, color = TvColors.TextPrimary)
             Spacer(Modifier.width(8.dp))
-            Text("${tracks.size} 首 · 演示数据", style = TvType.caption, color = TvColors.TextTertiary)
+            Text(
+                if (total > tracks.size) "${tracks.size} / $total 首 · QQ 音乐"
+                else "${tracks.size} 首 · QQ 音乐",
+                style = TvType.caption,
+                color = TvColors.TextTertiary,
+            )
             Spacer(Modifier.weight(1f))
             ActionChip(
                 label = "继续输入",
@@ -515,14 +536,23 @@ private fun ResultsPanel(
             )
         }
         Spacer(Modifier.height(10.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(tracks) { index, track ->
-                ResultRow(
-                    track = track,
-                    group = group,
-                    focusKey = "results:$index",
-                    onClick = { onPlay(track) },
-                )
+        if (tracks.isEmpty()) {
+            Text(
+                "没有找到歌曲，换个关键词试试",
+                style = TvType.body,
+                color = TvColors.TextSecondary,
+                modifier = Modifier.padding(top = 24.dp),
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(tracks) { index, track ->
+                    ResultRow(
+                        track = track,
+                        group = group,
+                        focusKey = "results:$index",
+                        onClick = { onPlay(track) },
+                    )
+                }
             }
         }
     }

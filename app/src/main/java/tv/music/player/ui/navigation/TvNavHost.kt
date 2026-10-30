@@ -9,7 +9,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import tv.music.player.core.playback.DemoPlaybackController
+import tv.music.player.core.lx.LxJsEngine
+import tv.music.player.core.playback.PlaybackController
+import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.ui.home.HomeScreen
@@ -23,7 +25,9 @@ fun TvNavHost(
     navController: NavHostController,
     settings: AppSettings,
     settingsRepository: SettingsRepository,
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
+    onlineSearch: OnlineSearchApi,
+    lxEngine: LxJsEngine,
 ) {
     NavHost(
         navController = navController,
@@ -37,7 +41,11 @@ fun TvNavHost(
             HomeScreen(playback = playback, navController = navController)
         }
         composable(TvRoute.Search.route) {
-            SearchScreen(playback = playback, navController = navController)
+            SearchScreen(
+                playback = playback,
+                onlineSearch = onlineSearch,
+                navController = navController,
+            )
         }
         composable(TvRoute.Player.route) {
             PlayerScreen(
@@ -57,6 +65,7 @@ fun TvNavHost(
                 groupId = entry.arguments?.getString("groupId").orEmpty(),
                 settings = settings,
                 settingsRepository = settingsRepository,
+                lxEngine = lxEngine,
                 onBack = { navController.popBackStack() },
             )
         }

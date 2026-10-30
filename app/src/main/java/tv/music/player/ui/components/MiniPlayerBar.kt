@@ -29,14 +29,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.focus.TvSurface
-import tv.music.player.core.playback.DemoPlaybackController
+import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.theme.LocalTvAccent
 import tv.music.player.core.theme.TvColors
 import tv.music.player.core.theme.TvType
 
 @Composable
 fun MiniPlayerBar(
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {

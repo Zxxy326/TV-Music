@@ -7,7 +7,15 @@ data class DemoTrack(
     val album: String,
     val durationMs: Long,
     val colorSeed: Int,
-)
+    val coverUrl: String = "",
+    val onlineSource: String = "",
+    val onlineSongId: String = "",
+    val onlineHash: String = "",
+    val onlineAlbumMid: String = "",
+    val onlineStrMediaMid: String = "",
+) {
+    val isOnline: Boolean get() = onlineSource.isNotBlank()
+}
 
 data class LyricLine(val timeMs: Long, val text: String)
 

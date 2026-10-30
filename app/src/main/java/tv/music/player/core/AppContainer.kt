@@ -1,12 +1,116 @@
 package tv.music.player.core
 
 import android.content.Context
-import tv.music.player.core.playback.DemoPlaybackController
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import kotlinx.coroutines.launch
+import tv.music.player.core.lx.LxFileStore
+import tv.music.player.core.lx.LxJsEngine
+import tv.music.player.core.playback.DemoTrack
+import tv.music.player.core.playback.PlaybackController
+import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.settings.SettingsRepository
+import tv.music.player.core.settings.lxQuality
+import java.util.concurrent.TimeUnit
 
 class AppContainer(context: Context) {
 
     val appContext: Context = context.applicationContext
     val settings = SettingsRepository(appContext)
-    val playback = DemoPlaybackController()
+
+    val lxFileStore = LxFileStore(appContext)
+    val lxEngine = LxJsEngine(lxFileStore)
+    val onlineSearch = OnlineSearchApi()
+
+    val playback = PlaybackController(
+        context = appContext,
+        resolveUrl = ::resolveStreamUrl,
+    )
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .build()
+
+    init {
+        appScope.launch {
+            val ok = lxEngine.ready()
+            Log.i(
+                "TVMusicLx",
+                "ready=$ok scripts=${lxEngine.scriptInfos().size} sources=${lxEngine.getSources().keys} " +
+                    "error=${lxEngine.lastError}",
+            )
+        }
+    }
+
+    private suspend fun resolveStreamUrl(track: DemoTrack, preferredQuality: String?): String? {
+        if (!track.isOnline) return null
+        if (!lxEngine.ready()) return null
+        val quality = settings.settings.first().quality.lxQuality
+        val info = mapOf(
+            "id" to track.onlineSongId,
+            "songmid" to track.onlineSongId,
+            "songId" to track.onlineSongId,
+            "hash" to track.onlineHash.ifBlank { track.onlineSongId },
+            "name" to track.title,
+            "singer" to track.artist,
+            "artist" to track.artist,
+            "album" to track.album,
+            "albumName" to track.album,
+            "albumMid" to track.onlineAlbumMid,
+            "strMediaMid" to track.onlineStrMediaMid,
+            "interval" to track.durationMs / 1000L,
+            "duration" to track.durationMs / 1000L,
+            "pic" to track.coverUrl,
+            "cover" to track.coverUrl,
+        )
+        val candidates = if (preferredQuality != null) {
+            listOf(preferredQuality, "flac", "320k", "128k")
+        } else {
+            when (quality) {
+                "flac", "320k" -> listOf("flac", "320k", "128k")
+                else -> listOf("128k", "320k", "flac")
+            }
+        }
+        for (candidate in candidates.distinct()) {
+            val url = lxEngine.getPlayUrl(track.onlineSource, info, candidate)
+            if (!url.isNullOrBlank() && isPlayable(url)) return url
+        }
+        return null
+    }
+
+    private fun isPlayable(url: String): Boolean = runCatching {
+        val request = Request.Builder()
+            .url(url)
+            .header("Range", "bytes=0-2047")
+            .header("User-Agent", UA)
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.w("TVMusicLx", "stream probe ${response.code} ${url.take(100)}")
+                return false
+            }
+            val type = response.header("Content-Type").orEmpty()
+            val looksLikeMedia = type.startsWith("audio/") ||
+                type.startsWith("video/") ||
+                type.contains("octet-stream") ||
+                type.contains("mpegurl") ||
+                type.isBlank()
+            if (!looksLikeMedia) {
+                Log.w("TVMusicLx", "stream probe type=$type ${url.take(100)}")
+                return false
+            }
+            response.body.byteStream().use { it.read(ByteArray(2048)) > 0 }
+        }
+    }.getOrDefault(false)
+
+    private companion object {
+        const val UA = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+    }
 }

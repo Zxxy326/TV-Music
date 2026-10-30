@@ -71,7 +71,7 @@ import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.playback.DemoCatalog
-import tv.music.player.core.playback.DemoPlaybackController
+import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.playback.PlayerSnapshot
 import tv.music.player.core.playback.formatDuration
 import tv.music.player.core.settings.AppSettings
@@ -91,7 +91,7 @@ import tv.music.player.ui.components.TvSafeArea
 
 @Composable
 fun PlayerScreen(
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
     settings: AppSettings,
     onBack: () -> Unit,
 ) {
@@ -294,7 +294,11 @@ private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings) {
         )
         Spacer(Modifier.width(18.dp))
         Column {
-            Text("正在播放 · 布局 A 全屏歌词", style = TvType.caption, color = accent)
+            Text(
+                if (snapshot.track.isOnline) "正在播放 · 在线音源" else "正在播放 · 布局 A 全屏歌词",
+                style = TvType.caption,
+                color = accent,
+            )
             Spacer(Modifier.height(4.dp))
             Text(
                 snapshot.track.title,
@@ -312,7 +316,11 @@ private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings) {
         Spacer(Modifier.weight(1f))
         Column(horizontalAlignment = Alignment.End) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TagChip("音质 ${settings.quality.label}", accent = true)
+                if (snapshot.buffering) {
+                    TagChip("解析中", accent = true)
+                } else {
+                    TagChip("音质 ${settings.quality.label}", accent = true)
+                }
                 TagChip("队列 ${snapshot.queue.size}")
             }
             Spacer(Modifier.height(8.dp))
@@ -327,6 +335,30 @@ private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings) {
 
 @Composable
 private fun LyricsView(snapshot: PlayerSnapshot, scale: Float) {
+    if (snapshot.track.isOnline) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = if (snapshot.buffering) "正在解析音源…" else "在线播放",
+                style = TextStyle(
+                    fontSize = (34f * scale).sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = Color.White,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "歌词时间轴将在 M2 接入",
+                style = TextStyle(fontSize = (20f * scale).sp),
+                color = Color.White.copy(alpha = 0.45f),
+            )
+        }
+        return
+    }
+
     val currentIndex = DemoCatalog.lyrics
         .indexOfLast { it.timeMs <= snapshot.positionMs }
         .coerceAtLeast(0)
@@ -360,7 +392,7 @@ private fun ControlsPanel(
     snapshot: PlayerSnapshot,
     settings: AppSettings,
     group: TvFocusGroup,
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
     onOpenQueue: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -519,7 +551,7 @@ private fun TransportButton(
 private fun QueuePanel(
     snapshot: PlayerSnapshot,
     group: TvFocusGroup,
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
     onClose: () -> Unit,
 ) {
     TvSurface(

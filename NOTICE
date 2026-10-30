@@ -14,33 +14,45 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-参考项目
---------
+参考项目与移植
+--------------
 XiangsuPlayerHQ (https://github.com/r3n011/XiangsuPlayerHQ)
-本项目在交互与架构设计上参考了该项目（GPL-3.0），未直接包含其源代码或资源。
+本项目在交互与架构设计上参考了该项目（GPL-3.0）。
+core/lx 下的 LX QuickJS 引擎、HTTP 客户端与脚本存储移植自该项目，
+并按 GPL-3.0 保留本声明。
 
 第三方组件
 ----------
-本项目的 APK 以二进制依赖形式包含以下组件，均使用 Apache License 2.0：
+本项目的 APK 以二进制依赖形式包含以下组件：
 
 - AndroidX / Jetpack Compose / Compose for TV / Navigation / Lifecycle /
-  DataStore / Palette / Core SplashScreen
+  DataStore / Palette / Media3
   Copyright The Android Open Source Project
+  Apache License 2.0
   https://developer.android.com/jetpack
 
 - Kotlin 标准库与 kotlinx.coroutines
   Copyright JetBrains s.r.o.
+  Apache License 2.0
   https://kotlinlang.org
 
-- Android Gradle Plugin / Gradle（仅构建期使用）
-  Copyright The Android Open Source Project / Gradle Inc.
+- QuickJS（MIT）与 wang.harlon.quickjs:wrapper-android（Apache-2.0）
+  https://github.com/haraldk/quickjs  /  https://github.com/wangharlon/QuickJS-Android
+
+- OkHttp / Okio
+  Copyright Square, Inc.
+  Apache License 2.0
+  https://square.github.io/okhttp/
 
 - Material Icons Extended（图片资源）
   Copyright Google LLC
+  Apache License 2.0
   https://fonts.google.com/icons
 
-音源与内容
-----------
-仓库与 APK 不包含任何音源插件、LX 脚本、音频文件或歌词文件。
-M0 页面中的曲名、歌手、榜单为演示占位数据，不对应可播放内容。
-用户后续自行导入的第三方脚本与内容，需自行确认其授权与合规性。
+音源脚本与内容
+--------------
+仓库与开源构建不包含任何音源插件、LX 脚本、音频文件或歌词文件。
+本地自用构建可由用户把脚本放入仓库根目录 `音源/`，构建时注入 APK；
+这些脚本的版权与许可归各自作者，本仓库不再分发。
+M0/M1a 页面中的曲名、歌手、榜单与歌词为演示占位数据，不对应固定可播放内容。
+在线搜索与取流依赖第三方接口，可能受平台风控、地域与版权限制。

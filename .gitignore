@@ -22,3 +22,7 @@ replay_pid*.log
 
 # 本地 AI/工具工作目录
 .workbuddy-ai/
+
+# 用户提供的 LX 音源脚本，不进开源仓库
+音源/
+app/src/main/assets/lx/

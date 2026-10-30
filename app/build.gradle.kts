@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.Copy
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -14,8 +15,8 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -79,5 +80,18 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
 
+    implementation("wang.harlon.quickjs:wrapper-android:3.2.3")
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+    implementation("androidx.media3:media3-exoplayer:1.10.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling:1.10.3")
 }
+
+val lxSourceDir = rootProject.file("音源")
+val syncLxScripts = tasks.register<Copy>("syncLxScripts") {
+    if (lxSourceDir.isDirectory) {
+        from(lxSourceDir) { include("*.js") }
+    }
+    into(layout.projectDirectory.dir("src/main/assets/lx"))
+}
+tasks.named("preBuild").configure { dependsOn(syncLxScripts) }

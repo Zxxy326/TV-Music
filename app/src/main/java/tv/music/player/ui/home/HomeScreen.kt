@@ -58,7 +58,7 @@ import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
 import tv.music.player.core.playback.DemoCatalog
-import tv.music.player.core.playback.DemoPlaybackController
+import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.theme.LocalTvAccent
 import tv.music.player.core.theme.TvColors
@@ -82,7 +82,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun HomeScreen(
-    playback: DemoPlaybackController,
+    playback: PlaybackController,
     navController: NavHostController,
 ) {
     val group = rememberTvFocusGroup("home")
@@ -329,7 +329,7 @@ fun HomeScreen(
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
-                            "M0 · 焦点系统演示",
+                            "实时取流 · LX 音源",
                             style = TvType.caption,
                             color = TvColors.TextTertiary,
                         )
@@ -391,7 +391,7 @@ private fun HomeHeader(
                         .background(accent)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("TV MUSIC · M0", style = TvType.tracking, color = accent)
+                Text("TV MUSIC · M1a", style = TvType.tracking, color = accent)
             }
             Spacer(Modifier.height(6.dp))
             Text("$greeting，今晚听点什么？", style = TvType.display, color = TvColors.TextPrimary)
