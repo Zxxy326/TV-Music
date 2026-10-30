@@ -1,6 +1,9 @@
 package tv.music.player.ui.settings
 
 import android.content.Context
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,7 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -28,13 +36,16 @@ import kotlinx.coroutines.launch
 import tv.music.player.BuildConfig
 import tv.music.player.core.crash.CrashLogger
 import tv.music.player.core.focus.rememberTvFocusGroup
+import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.scale.LocalTvScale
+import tv.music.player.core.search.OnlineSearchApi
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.LyricStyle
 import tv.music.player.core.settings.PlayerLayout
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.settings.formatLyricOffset
+import tv.music.player.core.settings.lxQuality
 import tv.music.player.core.theme.TvColors
 import tv.music.player.core.theme.TvType
 import tv.music.player.ui.components.CapsuleHostState
@@ -92,6 +103,8 @@ fun SettingsGroupScreen(
     settings: AppSettings,
     settingsRepository: SettingsRepository,
     lxEngine: LxJsEngine,
+    lxFileStore: LxFileStore,
+    onlineSearch: OnlineSearchApi,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -100,8 +113,44 @@ fun SettingsGroupScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scale = LocalTvScale.current
+    var lxRefreshToken by remember { mutableIntStateOf(0) }
     val entries = buildEntries(groupId, settings, settingsRepository, scope, capsule, context, scale)
     val firstFocusable = entries.firstOrNull { it !is SettingEntry.Info }?.key
+
+    val sourcePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val displayName = runCatching {
+                context.contentResolver.query(
+                    uri,
+                    arrayOf(OpenableColumns.DISPLAY_NAME),
+                    null,
+                    null,
+                    null,
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }.getOrNull().orEmpty().ifBlank { "userapi.js" }
+            val base = displayName.substringBeforeLast('.', displayName)
+            val written = lxFileStore.writeFromUri(uri, base)
+            if (written == null) {
+                capsule.show("导入失败：文件无法读取或为空")
+                return@launch
+            }
+            val reloaded = lxEngine.reload()
+            if (!reloaded) {
+                lxFileStore.deleteByName(written)
+                lxEngine.reload()
+                lxRefreshToken++
+                capsule.show("导入失败：脚本无效，已回滚")
+                return@launch
+            }
+            lxRefreshToken++
+            capsule.show("已导入 $written · 音源已重载")
+        }
+    }
 
     val activeRoute = LocalActiveRoute.current
     val isActive = activeRoute == TvRoute.SettingsGroup.route
@@ -136,7 +185,22 @@ fun SettingsGroupScreen(
             ) {
                 if (groupId == "sources") {
                     item(key = "lx-sources-card") {
-                        LxSourcesCard(lxEngine = lxEngine, group = group, capsule = capsule)
+                        LxSourcesCard(
+                            lxEngine = lxEngine,
+                            group = group,
+                            capsule = capsule,
+                            refreshToken = lxRefreshToken,
+                        )
+                    }
+                    item(key = "source-test-card") {
+                        SourceTestCard(
+                            lxEngine = lxEngine,
+                            onlineSearch = onlineSearch,
+                            group = group,
+                            capsule = capsule,
+                            quality = settings.quality.lxQuality,
+                            onImport = { sourcePicker.launch(arrayOf("*/*")) },
+                        )
                     }
                 }
                 items(entries, key = { it.key }) { entry ->
@@ -388,19 +452,11 @@ private fun buildEntries(
                 value = "M4",
                 onClick = { capsule.show("音源市场将在 M4 接入") },
             ),
-            SettingEntry.Action(
-                key = "usb",
-                title = "从 U 盘导入",
-                subtitle = "扫描 /mnt/usb/*.js",
-                value = "M1",
-                onClick = { capsule.show("U 盘导入脚本将在 M1 接入") },
-            ),
-            SettingEntry.Action(
-                key = "test",
-                title = "源测试",
-                subtitle = "对每个源跑一次搜索与取流，显示延迟",
-                value = "M1",
-                onClick = { capsule.show("源测试将在 M1 接入") },
+            SettingEntry.Info(
+                key = "scriptDir",
+                title = "脚本目录",
+                value = "files/lx_user_js",
+                subtitle = "导入的 .js 与内置脚本都会在这里加载",
             ),
         )
 

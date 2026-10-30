@@ -15,8 +15,8 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.6.0"
     }
 
     buildTypes {
@@ -83,6 +83,7 @@ dependencies {
     implementation("wang.harlon.quickjs:wrapper-android:3.2.3")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("androidx.media3:media3-exoplayer:1.10.1")
+    implementation("androidx.media3:media3-session:1.10.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.10.3")
 

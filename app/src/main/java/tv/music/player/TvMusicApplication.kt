@@ -13,5 +13,6 @@ class TvMusicApplication : Application() {
         super.onCreate()
         CrashLogger.install(this)
         container = AppContainer(this)
+        container.connectMediaSession()
     }
 }

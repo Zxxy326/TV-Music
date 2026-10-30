@@ -84,7 +84,10 @@ fun TvMusicApp() {
                         settingsRepository = container.settings,
                         playback = container.playback,
                         onlineSearch = container.onlineSearch,
+                        searchHistory = container.searchHistory,
+                        library = container.library,
                         lxEngine = container.lxEngine,
+                        lxFileStore = container.lxFileStore,
                         lyricsRepository = container.lyrics,
                     )
 

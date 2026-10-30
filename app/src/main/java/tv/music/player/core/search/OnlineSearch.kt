@@ -4,6 +4,7 @@ import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -82,6 +83,37 @@ class OnlineSearchApi {
             }
             throw lastError ?: IllegalStateException("QQ 搜索失败")
         }
+
+    suspend fun suggest(keyword: String, limit: Int = 6): List<String> = withContext(Dispatchers.IO) {
+        val term = keyword.trim()
+        if (term.length < 2) return@withContext emptyList()
+        runCatching {
+            val url = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp".toHttpUrl().newBuilder()
+                .addQueryParameter("w", term)
+                .addQueryParameter("format", "json")
+                .addQueryParameter("p", "1")
+                .addQueryParameter("n", "1")
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 13)")
+                .build()
+            val text = client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                response.body.string()
+            } ?: return@runCatching emptyList()
+            val root = JSONObject(text)
+            val qc = root.optJSONObject("data")?.optJSONArray("qc") ?: return@runCatching emptyList()
+            buildList {
+                for (i in 0 until qc.length()) {
+                    val item = qc.optJSONObject(i) ?: continue
+                    val textValue = item.optString("text").trim()
+                    if (textValue.isNotEmpty() && textValue != term) add(textValue)
+                }
+            }.distinct().take(limit)
+        }.getOrDefault(emptyList())
+    }
 
     private fun searchOnce(keyword: String, page: Int, pageSize: Int): OnlineSearchResult? {
         val json = buildSearchJson(keyword, page, pageSize)

@@ -1,6 +1,7 @@
 package tv.music.player.core.playback
 
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -43,6 +44,7 @@ data class PlayerSnapshot(
 class PlaybackController(
     context: Context,
     private val resolveUrl: suspend (track: DemoTrack, preferredQuality: String?) -> String?,
+    private val onTrackStarted: (DemoTrack) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -61,7 +63,7 @@ class PlaybackController(
             .setUserAgent(HTTP_UA)
             .setAllowCrossProtocolRedirects(true)
     )
-    private val player: ExoPlayer = ExoPlayer.Builder(appContext, mediaSourceFactory).build()
+    val player: ExoPlayer = ExoPlayer.Builder(appContext, mediaSourceFactory).build()
 
     init {
         player.setAudioAttributes(
@@ -148,6 +150,7 @@ class PlaybackController(
             player.clearMediaItems()
             _state.value = _state.value.copy(isPlaying = true)
             startTicker()
+            onTrackStarted(track)
             return
         }
 
@@ -184,6 +187,9 @@ class PlaybackController(
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.album)
+                    .apply {
+                        if (track.coverUrl.isNotBlank()) setArtworkUri(Uri.parse(track.coverUrl))
+                    }
                     .build()
             )
             .build()
@@ -192,6 +198,7 @@ class PlaybackController(
         player.playWhenReady = true
         _state.value = _state.value.copy(buffering = false)
         startOnlineTicker()
+        onTrackStarted(track)
     }
 
     fun next() {

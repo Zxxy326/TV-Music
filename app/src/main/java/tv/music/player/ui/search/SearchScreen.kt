@@ -1,5 +1,6 @@
 package tv.music.player.ui.search
 
+import android.os.SystemClock
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -19,7 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -28,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.tv.material3.Text
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
@@ -58,6 +63,8 @@ import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.playback.formatDuration
 import tv.music.player.core.search.OnlineSearchApi
+import tv.music.player.core.search.PinyinT9
+import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.search.decodeTracks
 import tv.music.player.core.search.encodeTracks
 import tv.music.player.core.search.toDemoTrack
@@ -80,18 +87,29 @@ import tv.music.player.ui.navigation.TvRoute
 fun SearchScreen(
     playback: PlaybackController,
     onlineSearch: OnlineSearchApi,
+    searchHistory: SearchHistoryStore,
     navController: NavHostController,
 ) {
     val group = rememberTvFocusGroup("search")
     val capsule = LocalCapsuleHost.current
     val scope = rememberCoroutineScope()
+    val t9 = remember { PinyinT9() }
 
     var query by rememberSaveable { mutableStateOf("") }
+    var pinyinMode by rememberSaveable { mutableStateOf(true) }
     var resultsJson by rememberSaveable { mutableStateOf<String?>(null) }
     val results = remember(resultsJson) { decodeTracks(resultsJson) }
     var total by rememberSaveable { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
-    val history = remember { mutableStateListOf("夜航星", "晴天") }
+    var loadingMore by remember { mutableStateOf(false) }
+    var currentTerm by rememberSaveable { mutableStateOf("") }
+    var page by rememberSaveable { mutableIntStateOf(0) }
+    var isEnd by rememberSaveable { mutableStateOf(true) }
+    var history by remember { mutableStateOf(searchHistory.load()) }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    val resultsState = rememberLazyListState()
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+    var moreJob by remember { mutableStateOf<Job?>(null) }
 
     val caretAlpha by rememberInfiniteTransition(label = "caret").animateFloat(
         initialValue = 1f,
@@ -100,47 +118,140 @@ fun SearchScreen(
         label = "caret-alpha",
     )
 
-    fun append(chars: String) {
-        if (query.length >= 24) return
-        query += chars
+    fun updateQuery(next: String) {
+        query = next.take(SearchHistoryStore.MAX_TERM_LENGTH)
         if (resultsJson != null) resultsJson = null
     }
 
+    fun typeDigit(digit: Char) {
+        if (!pinyinMode) {
+            updateQuery(query + digit)
+            t9.reset()
+            return
+        }
+        when (digit) {
+            '0' -> {
+                updateQuery(query + " ")
+                t9.reset()
+            }
+            '1' -> {
+                updateQuery(query + "'")
+                t9.reset()
+            }
+            else -> updateQuery(t9.type(digit, query, SystemClock.elapsedRealtime()))
+        }
+    }
+
+    fun appendLetter(letter: Char) {
+        t9.reset()
+        updateQuery(query + letter.lowercaseChar())
+    }
+
     fun backspace() {
-        if (query.isNotEmpty()) query = query.dropLast(1)
+        query = query.dropLast(1)
+        t9.reset()
         if (resultsJson != null) resultsJson = null
+    }
+
+    fun toggleInputMode() {
+        pinyinMode = !pinyinMode
+        t9.reset()
+        suggestions = emptyList()
+        capsule.show(if (pinyinMode) "输入方式：拼音九宫格" else "输入方式：数字")
     }
 
     fun runSearch() {
         val term = query.trim()
         if (term.isEmpty()) {
-            capsule.show("先输入关键词：数字键或九宫格")
+            capsule.show("先输入关键词：拼音九宫格或数字键")
             return
         }
-        history.remove(term)
-        history.add(0, term)
-        while (history.size > 4) history.removeAt(history.lastIndex)
+        t9.reset()
+        history = searchHistory.add(term)
+        currentTerm = term
+        page = 1
+        isEnd = true
+        loadingMore = false
+        suggestions = emptyList()
+        moreJob?.cancel()
+        searchJob?.cancel()
         resultsJson = null
         total = 0
         loading = true
-        scope.launch {
-            val result = runCatching { onlineSearch.search(term, 1, 30) }
-            loading = false
-            result.onSuccess { searchResult ->
+        searchJob = scope.launch {
+            try {
+                val searchResult = onlineSearch.search(term, 1, PAGE_SIZE)
+                if (!isActive) return@launch
                 val tracks = searchResult.list.map { it.toDemoTrack() }
+                    .distinctBy { trackKey(it) }
                 resultsJson = tracks.encodeTracks()
                 total = searchResult.total
+                isEnd = searchResult.isEnd || tracks.isEmpty()
+                loading = false
                 if (tracks.isEmpty()) {
                     capsule.show("没有找到「$term」")
                 } else {
                     delay(60)
+                    resultsState.scrollToItem(0)
                     group.focus("results:0")
                     capsule.show("QQ 音乐 · 找到 ${searchResult.total} 首")
                 }
-            }.onFailure {
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                if (!isActive) return@launch
+                loading = false
                 capsule.show("搜索失败，请检查网络后重试")
             }
         }
+    }
+
+    fun loadMore() {
+        if (loading || loadingMore || isEnd || currentTerm.isBlank()) return
+        val term = currentTerm
+        val previousSize = results.orEmpty().size
+        val nextPage = page + 1
+        loadingMore = true
+        moreJob?.cancel()
+        moreJob = scope.launch {
+            try {
+                val searchResult = onlineSearch.search(term, nextPage, PAGE_SIZE)
+                if (!isActive || term != currentTerm) return@launch
+                val additions = searchResult.list.map { it.toDemoTrack() }
+                val merged = (results.orEmpty() + additions).distinctBy { trackKey(it) }
+                resultsJson = merged.encodeTracks()
+                total = maxOf(total, searchResult.total)
+                page = nextPage
+                isEnd = searchResult.isEnd || additions.isEmpty() || merged.size == previousSize
+                loadingMore = false
+                delay(60)
+                if (merged.size > previousSize) {
+                    resultsState.scrollToItem(previousSize)
+                    delay(40)
+                    group.focus("results:$previousSize")
+                    capsule.show(if (isEnd) "已加载全部 ${merged.size} 首" else "已加载 ${merged.size} 首")
+                } else {
+                    group.focus("results:${merged.lastIndex.coerceAtLeast(0)}")
+                    capsule.show(if (isEnd) "已加载全部 ${merged.size} 首" else "没有更多新结果")
+                }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                if (!isActive) return@launch
+                loadingMore = false
+                capsule.show("加载下一页失败，请重试")
+            }
+        }
+    }
+
+    LaunchedEffect(query, resultsJson) {
+        val term = query.trim()
+        if (resultsJson != null || term.length < 2 || !term.all { it in 'a'..'z' }) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        delay(420)
+        suggestions = onlineSearch.suggest(term)
     }
 
     val activeRoute = LocalActiveRoute.current
@@ -167,13 +278,27 @@ fun SearchScreen(
                     false
                 } else {
                     val digit = digitForKey(event.key)
+                    val unicode = event.nativeKeyEvent.unicodeChar
                     when {
-                        digit != null -> {
-                            append(digit.toString())
+                        event.key == Key.Menu -> {
+                            toggleInputMode()
                             true
                         }
                         event.key == Key.Backspace -> {
                             backspace()
+                            true
+                        }
+                        event.key == Key.Spacebar -> {
+                            updateQuery(query + " ")
+                            t9.reset()
+                            true
+                        }
+                        digit != null -> {
+                            if (event.nativeKeyEvent.repeatCount == 0) typeDigit(digit)
+                            true
+                        }
+                        unicode.toChar().isLetter() -> {
+                            if (event.nativeKeyEvent.repeatCount == 0) appendLetter(unicode.toChar())
                             true
                         }
                         else -> false
@@ -186,14 +311,22 @@ fun SearchScreen(
             Column(Modifier.fillMaxSize()) {
                 ScreenHeader(
                     title = "搜索",
-                    subtitle = "T9 九宫格 · 数字键直接输入 · QQ 音乐在线搜索",
+                    subtitle = if (pinyinMode) {
+                        "拼音九宫格 · 全拼或首字母 · QQ 音乐在线搜索"
+                    } else {
+                        "数字九宫格 · 数字键直接输入 · QQ 音乐在线搜索"
+                    },
                     group = group,
                     onBack = { navController.popBackStack() },
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Keycap("MENU")
                             Spacer(Modifier.width(8.dp))
-                            Text("输入法切换", style = TvType.caption, color = TvColors.TextTertiary)
+                            Text(
+                                if (pinyinMode) "拼音输入" else "数字输入",
+                                style = TvType.caption,
+                                color = TvColors.TextTertiary,
+                            )
                         }
                     },
                 )
@@ -203,15 +336,31 @@ fun SearchScreen(
                         Modifier.width(460.dp).fillMaxHeight(),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        QueryPanel(query = query, caretAlpha = caretAlpha)
-                        HotWords(
-                            group = group,
-                            onPick = {
-                                query = it
-                                resultsJson = null
-                                runSearch()
-                            },
+                        QueryPanel(
+                            query = query,
+                            caretAlpha = caretAlpha,
+                            modeLabel = if (pinyinMode) "拼音" else "数字",
                         )
+                        if (suggestions.isNotEmpty()) {
+                            SuggestionWords(
+                                group = group,
+                                suggestions = suggestions.take(4),
+                                onPick = {
+                                    query = it
+                                    resultsJson = null
+                                    runSearch()
+                                },
+                            )
+                        } else {
+                            HotWords(
+                                group = group,
+                                onPick = {
+                                    query = it
+                                    resultsJson = null
+                                    runSearch()
+                                },
+                            )
+                        }
                         HistoryWords(
                             group = group,
                             history = history,
@@ -221,7 +370,8 @@ fun SearchScreen(
                                 runSearch()
                             },
                             onClear = {
-                                history.clear()
+                                searchHistory.clear()
+                                history = emptyList()
                                 capsule.show("已清除搜索历史")
                             },
                         )
@@ -238,20 +388,27 @@ fun SearchScreen(
                             results != null -> ResultsPanel(
                                 tracks = results,
                                 total = total,
+                                page = page,
+                                isEnd = isEnd,
+                                loadingMore = loadingMore,
+                                listState = resultsState,
                                 group = group,
                                 onBackToKeyboard = {
                                     resultsJson = null
                                     group.focus("t9:0")
                                 },
+                                onLoadMore = ::loadMore,
                                 onPlay = playTrack,
                             )
                             else -> T9Panel(
                                 group = group,
-                                onDigit = ::append,
+                                pinyinMode = pinyinMode,
+                                onDigit = { digit -> typeDigit(digit.first()) },
                                 onBackspace = ::backspace,
                                 onClear = {
                                     query = ""
                                     resultsJson = null
+                                    t9.reset()
                                 },
                                 onSearch = ::runSearch,
                             )
@@ -264,7 +421,7 @@ fun SearchScreen(
 }
 
 @Composable
-private fun QueryPanel(query: String, caretAlpha: Float) {
+private fun QueryPanel(query: String, caretAlpha: Float, modeLabel: String) {
     val accent = LocalTvAccent.current
     TvSurface(
         modifier = Modifier.fillMaxWidth().height(108.dp),
@@ -273,7 +430,7 @@ private fun QueryPanel(query: String, caretAlpha: Float) {
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("搜索词", style = TvType.caption, color = TvColors.TextTertiary)
+                Text("搜索词 · $modeLabel", style = TvType.caption, color = TvColors.TextTertiary)
                 Spacer(Modifier.weight(1f))
                 Text("最多 24 字符", style = TvType.caption, color = TvColors.TextTertiary)
             }
@@ -315,6 +472,31 @@ private fun HotWords(group: TvFocusGroup, onPick: (String) -> Unit) {
                         onClick = { onPick(word) },
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionWords(
+    group: TvFocusGroup,
+    suggestions: List<String>,
+    onPick: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("猜你想搜", style = TvType.title, color = TvColors.TextPrimary)
+            Spacer(Modifier.width(8.dp))
+            Text("QQ 音乐联想", style = TvType.caption, color = TvColors.TextTertiary)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            suggestions.forEachIndexed { index, word ->
+                SearchChip(
+                    text = word,
+                    group = group,
+                    focusKey = "suggest:$index",
+                    onClick = { onPick(word) },
+                )
             }
         }
     }
@@ -405,14 +587,31 @@ private val t9Keys = listOf(
     T9Key("⌫", "删除", special = true),
 )
 
+private val pinyinKeys = listOf(
+    T9Key("1", "分隔"),
+    T9Key("2", "ABC"),
+    T9Key("3", "DEF"),
+    T9Key("4", "GHI"),
+    T9Key("5", "JKL"),
+    T9Key("6", "MNO"),
+    T9Key("7", "PQRS"),
+    T9Key("8", "TUV"),
+    T9Key("9", "WXYZ"),
+    T9Key("清空", "", special = true),
+    T9Key("0", "空格"),
+    T9Key("⌫", "删除", special = true),
+)
+
 @Composable
 private fun T9Panel(
     group: TvFocusGroup,
+    pinyinMode: Boolean,
     onDigit: (String) -> Unit,
     onBackspace: () -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
 ) {
+    val keys = if (pinyinMode) pinyinKeys else t9Keys
     TvSurface(
         modifier = Modifier.fillMaxSize(),
         shape = RoundedCornerShape(22.dp),
@@ -420,12 +619,20 @@ private fun T9Panel(
     ) {
         Column(Modifier.fillMaxSize().padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("九宫格输入", style = TvType.label, color = TvColors.TextPrimary)
+                Text(
+                    if (pinyinMode) "拼音九宫格" else "数字九宫格",
+                    style = TvType.label,
+                    color = TvColors.TextPrimary,
+                )
                 Spacer(Modifier.weight(1f))
-                Text("方向键移动 · OK 输入", style = TvType.caption, color = TvColors.TextTertiary)
+                Text(
+                    if (pinyinMode) "连按同键换字母 · MENU 切换" else "方向键移动 · OK 输入",
+                    style = TvType.caption,
+                    color = TvColors.TextTertiary,
+                )
             }
             Spacer(Modifier.height(10.dp))
-            t9Keys.chunked(3).forEachIndexed { rowIndex, row ->
+            keys.chunked(3).forEachIndexed { rowIndex, row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     row.forEachIndexed { columnIndex, key ->
                         val index = rowIndex * 3 + columnIndex
@@ -437,7 +644,6 @@ private fun T9Panel(
                                 when (key.digit) {
                                     "清空" -> onClear()
                                     "⌫" -> onBackspace()
-                                    "0" -> Unit
                                     else -> onDigit(key.digit)
                                 }
                             },
@@ -513,8 +719,13 @@ private fun T9Button(
 private fun ResultsPanel(
     tracks: List<DemoTrack>,
     total: Int,
+    page: Int,
+    isEnd: Boolean,
+    loadingMore: Boolean,
+    listState: LazyListState,
     group: TvFocusGroup,
     onBackToKeyboard: () -> Unit,
+    onLoadMore: () -> Unit,
     onPlay: (DemoTrack) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -522,7 +733,7 @@ private fun ResultsPanel(
             Text("搜索结果", style = TvType.title, color = TvColors.TextPrimary)
             Spacer(Modifier.width(8.dp))
             Text(
-                if (total > tracks.size) "${tracks.size} / $total 首 · QQ 音乐"
+                if (total > tracks.size) "已加载 ${tracks.size} / $total 首 · 第 $page 页"
                 else "${tracks.size} 首 · QQ 音乐",
                 style = TvType.caption,
                 color = TvColors.TextTertiary,
@@ -544,7 +755,10 @@ private fun ResultsPanel(
                 modifier = Modifier.padding(top = 24.dp),
             )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 itemsIndexed(tracks) { index, track ->
                     ResultRow(
                         track = track,
@@ -552,6 +766,44 @@ private fun ResultsPanel(
                         focusKey = "results:$index",
                         onClick = { onPlay(track) },
                     )
+                }
+                item(key = "results-more") {
+                    if (!isEnd) {
+                        TvSurface(
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            baseColor = TvColors.SurfaceElevated.copy(alpha = 0.7f),
+                            focusedScale = 1.02f,
+                            glowSize = 10.dp,
+                            group = group,
+                            focusKey = "results:more",
+                            onClick = onLoadMore,
+                        ) {
+                            Row(
+                                Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    if (loadingMore) "正在加载第 ${page + 1} 页…" else "加载更多",
+                                    style = TvType.label,
+                                    color = LocalTvAccent.current,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    if (total > tracks.size) "还有 ${total - tracks.size} 首" else "继续加载",
+                                    style = TvType.caption,
+                                    color = TvColors.TextTertiary,
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            "已加载全部 ${tracks.size} 首",
+                            style = TvType.caption,
+                            color = TvColors.TextTertiary,
+                            modifier = Modifier.padding(vertical = 14.dp),
+                        )
+                    }
                 }
             }
         }
@@ -614,7 +866,7 @@ private fun LoadingResults() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("搜索中", style = TvType.title, color = TvColors.TextPrimary)
             Spacer(Modifier.width(8.dp))
-            Text("演示延迟 650ms", style = TvType.caption, color = TvColors.TextTertiary)
+            Text("正在连接 QQ 音乐…", style = TvType.caption, color = TvColors.TextTertiary)
         }
         repeat(4) {
             SkeletonBox(Modifier.fillMaxWidth().height(68.dp), RoundedCornerShape(14.dp))
@@ -635,3 +887,7 @@ private fun digitForKey(key: Key): Char? = when (key) {
     Key.Nine, Key.NumPad9 -> '9'
     else -> null
 }
+
+private fun trackKey(track: DemoTrack): String = "${track.onlineSource}:${track.onlineSongId}"
+
+private const val PAGE_SIZE = 30

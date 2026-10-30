@@ -4,18 +4,24 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import tv.music.player.core.library.LibraryStore
+import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.search.OnlineSearchApi
+import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.ui.home.HomeScreen
+import tv.music.player.ui.library.LibraryScreen
 import tv.music.player.ui.player.PlayerScreen
 import tv.music.player.ui.search.SearchScreen
 import tv.music.player.ui.settings.SettingsGroupScreen
@@ -28,7 +34,10 @@ fun TvNavHost(
     settingsRepository: SettingsRepository,
     playback: PlaybackController,
     onlineSearch: OnlineSearchApi,
+    searchHistory: SearchHistoryStore,
+    library: LibraryStore,
     lxEngine: LxJsEngine,
+    lxFileStore: LxFileStore,
     lyricsRepository: LyricsRepository,
 ) {
     NavHost(
@@ -40,12 +49,17 @@ fun TvNavHost(
         popExitTransition = { fadeOut(tween(120)) },
     ) {
         composable(TvRoute.Home.route) {
-            HomeScreen(playback = playback, navController = navController)
+            HomeScreen(
+                playback = playback,
+                library = library,
+                navController = navController,
+            )
         }
         composable(TvRoute.Search.route) {
             SearchScreen(
                 playback = playback,
                 onlineSearch = onlineSearch,
+                searchHistory = searchHistory,
                 navController = navController,
             )
         }
@@ -55,7 +69,32 @@ fun TvNavHost(
                 settings = settings,
                 settingsRepository = settingsRepository,
                 lyricsRepository = lyricsRepository,
+                library = library,
                 onBack = { navController.popBackStack() },
+            )
+        }
+        composable(TvRoute.Favorites.route) {
+            val favorites by library.favorites.collectAsState()
+            LibraryScreen(
+                route = TvRoute.Favorites.route,
+                title = "我的收藏",
+                subtitle = "播放页 ↑ 打开控制条 · 选择收藏即可加入这里",
+                emptyText = "还没有收藏。播放喜欢的歌，在控制条里按收藏。",
+                tracks = favorites,
+                playback = playback,
+                navController = navController,
+            )
+        }
+        composable(TvRoute.Recent.route) {
+            val recent by library.recent.collectAsState()
+            LibraryScreen(
+                route = TvRoute.Recent.route,
+                title = "最近播放",
+                subtitle = "开始播放后自动记录 · 最多保留 30 首",
+                emptyText = "还没有播放记录。去搜索并播放一首歌吧。",
+                tracks = recent,
+                playback = playback,
+                navController = navController,
             )
         }
         composable(TvRoute.Settings.route) {
@@ -70,6 +109,8 @@ fun TvNavHost(
                 settings = settings,
                 settingsRepository = settingsRepository,
                 lxEngine = lxEngine,
+                lxFileStore = lxFileStore,
+                onlineSearch = onlineSearch,
                 onBack = { navController.popBackStack() },
             )
         }

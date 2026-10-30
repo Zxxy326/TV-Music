@@ -50,6 +50,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
@@ -57,6 +58,7 @@ import kotlinx.coroutines.launch
 import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
+import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.playback.DemoCatalog
 import tv.music.player.core.playback.PlaybackController
 import tv.music.player.core.playback.DemoTrack
@@ -83,12 +85,16 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun HomeScreen(
     playback: PlaybackController,
+    library: LibraryStore,
     navController: NavHostController,
 ) {
     val group = rememberTvFocusGroup("home")
     val listState = rememberLazyListState()
     val capsule = LocalCapsuleHost.current
-    val continueTracks = remember { DemoCatalog.tracks.take(6) }
+    val recent by library.recent.collectAsStateWithLifecycle()
+    val continueTracks = remember(recent) {
+        recent.take(6).ifEmpty { DemoCatalog.tracks.take(6) }
+    }
     val guessTracks = remember { DemoCatalog.tracks.drop(4).take(8) }
     val greeting = rememberGreeting()
     val clock = rememberClock()
@@ -208,8 +214,8 @@ fun HomeScreen(
         if (windowFocused && isActive) restoreHomeFocus()
     }
 
-    val playTrack: (DemoTrack) -> Unit = { track ->
-        playback.play(track)
+    val playTrack: (DemoTrack, List<DemoTrack>) -> Unit = { track, queue ->
+        playback.play(track, queue)
         navController.navigate(TvRoute.Player.route) { launchSingleTop = true }
     }
 
@@ -246,8 +252,10 @@ fun HomeScreen(
                 QuickRow(
                     group = group,
                     onSearch = { navController.navigate(TvRoute.Search.route) },
+                    onFavorites = { navController.navigate(TvRoute.Favorites.route) },
+                    onRecent = { navController.navigate(TvRoute.Recent.route) },
                     onSources = { navController.navigate(TvRoute.SettingsGroup.of("sources")) },
-                    onPlaceholder = { capsule.show("该模块将在后续里程碑接入") },
+                    onPlaceholder = { capsule.show("本地音乐将在 M4 接入") },
                 )
                 Spacer(Modifier.height(12.dp))
                 LazyColumn(
@@ -258,7 +266,10 @@ fun HomeScreen(
                 ) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SectionHeader("继续听", trailing = "最近播放 · 前 6 首")
+                        SectionHeader(
+                            "继续听",
+                            trailing = if (recent.isEmpty()) "演示推荐 · 播放后自动记录" else "最近播放 · 前 6 首",
+                        )
                         TvRail(
                             items = continueTracks,
                             keyPrefix = "rail:continue",
@@ -270,7 +281,7 @@ fun HomeScreen(
                                 track = track,
                                 group = group,
                                 focusKey = focusKey,
-                                onClick = { playTrack(track) },
+                                onClick = { playTrack(track, continueTracks) },
                             )
                         }
                     }
@@ -289,7 +300,7 @@ fun HomeScreen(
                                 track = track,
                                 group = group,
                                 focusKey = focusKey,
-                                onClick = { playTrack(track) },
+                                onClick = { playTrack(track, guessTracks) },
                             )
                         }
                     }
@@ -391,7 +402,7 @@ private fun HomeHeader(
                         .background(accent)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("TV MUSIC · M2b", style = TvType.tracking, color = accent)
+                Text("TV MUSIC · M1b", style = TvType.tracking, color = accent)
             }
             Spacer(Modifier.height(6.dp))
             Text("$greeting，今晚听点什么？", style = TvType.display, color = TvColors.TextPrimary)
@@ -446,6 +457,8 @@ private fun NetworkPill(online: Boolean) {
 private fun QuickRow(
     group: TvFocusGroup,
     onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onRecent: () -> Unit,
     onSources: () -> Unit,
     onPlaceholder: () -> Unit,
 ) {
@@ -466,7 +479,7 @@ private fun QuickRow(
             label = "我的收藏",
             group = group,
             focusKey = "quick:1",
-            onClick = onPlaceholder,
+            onClick = onFavorites,
             modifier = Modifier.width(158.dp),
         )
         QuickTile(
@@ -474,7 +487,7 @@ private fun QuickRow(
             label = "最近播放",
             group = group,
             focusKey = "quick:2",
-            onClick = onPlaceholder,
+            onClick = onRecent,
             modifier = Modifier.width(158.dp),
         )
         QuickTile(

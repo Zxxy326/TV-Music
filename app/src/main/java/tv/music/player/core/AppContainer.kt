@@ -1,7 +1,11 @@
 package tv.music.player.core
 
+import android.content.ComponentName
 import android.content.Context
 import android.util.Log
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -9,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import kotlinx.coroutines.launch
+import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.lx.LxFileStore
 import tv.music.player.core.lx.LxJsEngine
 import tv.music.player.core.lyrics.LyricsDiskCache
@@ -16,7 +21,9 @@ import tv.music.player.core.lyrics.LyricsMatchStore
 import tv.music.player.core.lyrics.LyricsRepository
 import tv.music.player.core.playback.DemoTrack
 import tv.music.player.core.playback.PlaybackController
+import tv.music.player.core.playback.PlaybackService
 import tv.music.player.core.search.OnlineSearchApi
+import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.settings.lxQuality
 import java.io.File
@@ -30,15 +37,18 @@ class AppContainer(context: Context) {
     val lxFileStore = LxFileStore(appContext)
     val lxEngine = LxJsEngine(lxFileStore)
     val onlineSearch = OnlineSearchApi()
+    val searchHistory = SearchHistoryStore(appContext)
     val lyrics = LyricsRepository(
         diskCache = LyricsDiskCache(File(appContext.cacheDir, "lyrics")),
         matchStore = LyricsMatchStore(appContext),
         searchApi = onlineSearch,
     )
 
+    val library = LibraryStore(appContext)
     val playback = PlaybackController(
         context = appContext,
         resolveUrl = ::resolveStreamUrl,
+        onTrackStarted = library::recordPlayed,
     )
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,6 +56,13 @@ class AppContainer(context: Context) {
         .connectTimeout(6, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
+    private var mediaControllerFuture: ListenableFuture<MediaController>? = null
+
+    fun connectMediaSession() {
+        if (mediaControllerFuture != null) return
+        val token = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
+        mediaControllerFuture = MediaController.Builder(appContext, token).buildAsync()
+    }
 
     init {
         appScope.launch {

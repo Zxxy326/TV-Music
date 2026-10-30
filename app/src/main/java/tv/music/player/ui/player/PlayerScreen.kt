@@ -49,6 +49,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -106,6 +108,8 @@ import kotlinx.coroutines.launch
 import tv.music.player.core.focus.TvFocusGroup
 import tv.music.player.core.focus.TvSurface
 import tv.music.player.core.focus.rememberTvFocusGroup
+import tv.music.player.core.library.LibraryStore
+import tv.music.player.core.library.libraryKey
 import tv.music.player.core.lyrics.LyricLine
 import tv.music.player.core.lyrics.LyricWord
 import tv.music.player.core.lyrics.Lyrics
@@ -141,9 +145,12 @@ fun PlayerScreen(
     settings: AppSettings,
     settingsRepository: SettingsRepository,
     lyricsRepository: LyricsRepository,
+    library: LibraryStore,
     onBack: () -> Unit,
 ) {
     val snapshot by playback.state.collectAsStateWithLifecycle()
+    val favorites by library.favorites.collectAsStateWithLifecycle()
+    val isFavorite = favorites.any { it.libraryKey() == snapshot.track.libraryKey() }
     val cover = rememberCoverArt()
     val accent = LocalTvAccent.current
     val capsule = LocalCapsuleHost.current
@@ -203,6 +210,11 @@ fun PlayerScreen(
                 .onSuccess { capsule.show(message) }
                 .onFailure { capsule.show("保存失败：${it.message.orEmpty()}") }
         }
+    }
+
+    fun toggleFavorite() {
+        val added = library.toggleFavorite(snapshot.track)
+        capsule.show(if (added) "已收藏：${snapshot.track.title}" else "已取消收藏")
     }
 
     fun openLyricsPanel() {
@@ -404,7 +416,7 @@ fun PlayerScreen(
         TvSafeArea {
             Column(Modifier.fillMaxSize()) {
                 if (!hideTopBar) {
-                    PlayerTopBar(snapshot = snapshot, settings = settings)
+                    PlayerTopBar(snapshot = snapshot, settings = settings, favorite = isFavorite)
                 }
                 if (splitLayout) {
                     Row(
@@ -418,6 +430,7 @@ fun PlayerScreen(
                             snapshot = snapshot,
                             settings = settings,
                             coverImage = cover,
+                            favorite = isFavorite,
                             modifier = Modifier.width(292.dp),
                         )
                         Spacer(Modifier.width(34.dp))
@@ -469,8 +482,10 @@ fun PlayerScreen(
             ControlsPanel(
                 snapshot = snapshot,
                 settings = settings,
+                favorite = isFavorite,
                 group = group,
                 playback = playback,
+                onToggleFavorite = ::toggleFavorite,
                 onOpenQueue = { queueVisible = true },
                 onOpenLyrics = {
                     controlsVisible = false
@@ -533,6 +548,7 @@ private fun SplitCoverRail(
     snapshot: PlayerSnapshot,
     settings: AppSettings,
     coverImage: tv.music.player.core.theme.CoverArt,
+    favorite: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val accent = LocalTvAccent.current
@@ -601,6 +617,7 @@ private fun SplitCoverRail(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TagChip("音质 ${settings.quality.label}", accent = true)
             TagChip("队列 ${snapshot.queue.size}")
+            if (favorite) TagChip("已收藏")
         }
     }
 }
@@ -646,7 +663,7 @@ private fun PlayerBackdrop(
 }
 
 @Composable
-private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings) {
+private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings, favorite: Boolean) {
     val accent = LocalTvAccent.current
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         ArtworkPlaceholder(
@@ -684,6 +701,7 @@ private fun PlayerTopBar(snapshot: PlayerSnapshot, settings: AppSettings) {
                     TagChip("音质 ${settings.quality.label}", accent = true)
                 }
                 TagChip("队列 ${snapshot.queue.size}")
+                if (favorite) TagChip("已收藏")
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -1884,8 +1902,10 @@ private fun LyricChoice(label: String, selected: Boolean, active: Boolean = fals
 private fun ControlsPanel(
     snapshot: PlayerSnapshot,
     settings: AppSettings,
+    favorite: Boolean,
     group: TvFocusGroup,
     playback: PlaybackController,
+    onToggleFavorite: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenLyrics: () -> Unit,
     onClose: () -> Unit,
@@ -1933,6 +1953,10 @@ private fun ControlsPanel(
                     )
                 }
                 TagChip("音质 ${settings.quality.label}", accent = true)
+                if (favorite) {
+                    Spacer(Modifier.width(8.dp))
+                    TagChip("已收藏")
+                }
                 Spacer(Modifier.width(10.dp))
                 ActionChip(
                     label = "队列 ${snapshot.queue.size}",
@@ -1964,6 +1988,13 @@ private fun ControlsPanel(
                 horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                TransportButton(
+                    icon = if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    contentDescription = if (favorite) "取消收藏" else "收藏",
+                    group = group,
+                    focusKey = "controls:favorite",
+                    onClick = onToggleFavorite,
+                )
                 TransportButton(
                     icon = Icons.Rounded.Replay10,
                     contentDescription = "快退 10 秒",
