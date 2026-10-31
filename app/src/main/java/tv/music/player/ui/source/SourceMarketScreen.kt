@@ -238,8 +238,8 @@ private fun ReleaseRow(
                     buildString {
                         append(release.displayDate)
                         if (release.zipSize > 0) append(" · ").append(formatSize(release.zipSize))
-                        if (release.notes.isNotBlank()) {
-                            append(" · ").append(release.notes.lineSequence().firstOrNull().orEmpty())
+                        if (release.displayNotes.isNotBlank()) {
+                            append(" · ").append(release.displayNotes.take(80))
                         }
                     },
                     style = TvType.caption,

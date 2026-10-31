@@ -23,7 +23,7 @@ import java.io.IOException
 import java.nio.charset.Charset
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
-import java.util.zip.ZipFile
+import org.apache.commons.compress.archivers.zip.ZipFile as ApacheZipFile
 
 data class MarketRelease(
     val tag: String,
@@ -38,6 +38,16 @@ data class MarketRelease(
 ) {
     val displayName: String get() = name.ifBlank { tag }
     val displayDate: String get() = publishedAt.take(10)
+    val displayNotes: String
+        get() = notes
+            .replace(Regex("<[^>]+>"), " ")
+            .replace(Regex("\\s+"), " ")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .trim()
 }
 
 data class MarketEntry(
@@ -356,11 +366,37 @@ class SourceMarketStore(
 
     private suspend fun inspectZip(zip: File): List<MarketEntry> = withContext(Dispatchers.IO) {
         if (!zipMagicOk(zip)) throw IOException("缓存文件不是有效 zip")
-        val charset = if (hasBrokenUtf8Names(zip)) Charset.forName("GBK") else Charsets.UTF_8
-        val raw = LinkedHashMap<String, Triple<String, String, ByteArray>>()
+        val utf8 = runCatching { readZip(zip, "UTF-8") }.getOrNull()
+        val parsed = if (utf8 != null && utf8.isNotEmpty() && utf8.none { it.key.contains('�') }) {
+            utf8
+        } else {
+            runCatching { readZip(zip, "GBK") }.getOrNull() ?: utf8.orEmpty()
+        }
+        if (parsed.isEmpty()) throw IOException("压缩包中没有可读取的 .js")
+        val installed = installedNames()
+        parsed.map { raw ->
+            val info = runCatching { engine.scriptInfoFromBytes(raw.bytes, raw.fileName) }
+                .getOrDefault(tv.music.player.core.lx.LxScriptInfo(fileName = raw.fileName, name = raw.fileName))
+            MarketEntry(
+                key = raw.key,
+                fileName = raw.fileName,
+                folder = raw.folder,
+                sizeBytes = raw.bytes.size.toLong(),
+                scriptName = info.name.ifBlank { raw.fileName.substringBeforeLast('.') },
+                version = info.version,
+                author = info.author,
+                installed = raw.fileName in installed,
+                bytes = raw.bytes,
+            )
+        }
+    }
+
+    private fun readZip(zip: File, encoding: String): List<ZipEntryData> {
+        val result = mutableListOf<ZipEntryData>()
+        val seen = mutableSetOf<String>()
         var totalBytes = 0L
-        ZipFile(zip, charset).use { archive ->
-            val entries = archive.entries()
+        ApacheZipFile(zip, encoding).use { archive ->
+            val entries = archive.entries
             while (entries.hasMoreElements()) {
                 val entry = entries.nextElement()
                 if (entry.isDirectory || !entry.name.endsWith(".js", ignoreCase = true)) continue
@@ -384,39 +420,20 @@ class SourceMarketStore(
                 val bytes = out.toByteArray()
                 if (bytes.isEmpty() || bytes.size > MAX_ENTRY_BYTES) continue
                 totalBytes += bytes.size
-                if (totalBytes > MAX_TOTAL_BYTES || raw.size >= MAX_ENTRIES) break
-                if (raw.values.any { it.first.equals(base, true) }) continue
-                raw[name] = Triple(base, folder, bytes)
+                if (totalBytes > MAX_TOTAL_BYTES || result.size >= MAX_ENTRIES) break
+                if (!seen.add(base.lowercase())) continue
+                result += ZipEntryData(name, base, folder, bytes)
             }
         }
-        val installed = installedNames()
-        raw.map { (key, value) ->
-            val (fileName, folder, bytes) = value
-            val info = runCatching { engine.scriptInfoFromBytes(bytes, fileName) }
-                .getOrDefault(tv.music.player.core.lx.LxScriptInfo(fileName = fileName, name = fileName))
-            MarketEntry(
-                key = key,
-                fileName = fileName,
-                folder = folder,
-                sizeBytes = bytes.size.toLong(),
-                scriptName = info.name.ifBlank { fileName.substringBeforeLast('.') },
-                version = info.version,
-                author = info.author,
-                installed = fileName in installed,
-                bytes = bytes,
-            )
-        }
+        return result
     }
 
-    private fun hasBrokenUtf8Names(zip: File): Boolean = runCatching {
-        ZipFile(zip, Charsets.UTF_8).use { archive ->
-            val entries = archive.entries()
-            while (entries.hasMoreElements()) {
-                if (entries.nextElement().name.contains('�')) return@use true
-            }
-            false
-        }
-    }.getOrDefault(false)
+    private data class ZipEntryData(
+        val key: String,
+        val fileName: String,
+        val folder: String,
+        val bytes: ByteArray,
+    )
 
     private fun zipMagicOk(file: File): Boolean {
         if (!file.isFile || file.length() < 4) return false

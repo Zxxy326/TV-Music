@@ -140,10 +140,10 @@ fun SourceReleaseScreen(
                                 color = TvColors.TextTertiary,
                             )
                         }
-                        if (!release?.notes.isNullOrBlank()) {
+                        if (!release?.displayNotes.isNullOrBlank()) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                release.notes,
+                                release.displayNotes,
                                 style = TvType.caption,
                                 color = TvColors.TextSecondary,
                                 maxLines = 2,

@@ -2,7 +2,7 @@
 
 面向 Android TV / 电视盒子的音乐播放器，遥控器优先，大屏 960×540dp 基准设计，支持 4K 缩放与三档字号。
 
-当前版本 **0.10.0 · M3b2**：新增**账号与歌单**——网易云扫码登录、Cookie 加密导入、我的歌单与整单播放；同时把**音源市场**移植为像素播放器的 GitHub Release 方案：拉取音源 zip、镜像下载、按 GitHub SHA-256 校验后逐个安装脚本。M4 的本地库/SMB、M3c 的在线更新、M3b1 的下载/离线库、M3a 的手机伴侣、M2 的逐字歌词与 M1 的搜索/后台播放继续保留。
+当前版本 **0.10.1 · M3b2**：新增**账号与歌单**——网易云扫码登录、Cookie 加密导入、我的歌单与整单播放；同时把**音源市场**移植为像素播放器的 GitHub Release 方案：拉取音源 zip、镜像下载、按 GitHub SHA-256 校验后逐个安装脚本。M4 的本地库/SMB、M3c 的在线更新、M3b1 的下载/离线库、M3a 的手机伴侣、M2 的逐字歌词与 M1 的搜索/后台播放继续保留。
 
 > 本仓库不包含任何音源脚本、音频或歌词文件。本地构建会把用户放在仓库根目录 `音源/` 下的 `*.js` 注入 APK 供自用；开源构建不注入脚本。README 末尾有版权与许可说明。
 
@@ -45,7 +45,7 @@
 
 - **入口**：设置 → 音源 → 音源市场。版本列表来自 `guoyue2010/lxmusic-` 的 GitHub Releases，进入详情后下载该版本的音源 zip。
 - **下载与校验**：依次尝试 `ghproxy.net`、`gh-proxy.com` 镜像，最后回退 GitHub 直链；下载后按 GitHub API 提供的 asset `digest` 做 SHA-256 校验，同时校验文件大小与 ZIP 魔数。
-- **解压**：自动识别 zip 文件名的 UTF-8 / GBK 编码；只读取 `.js`，单条 ≤ 4 MB、整包 ≤ 24 MB、最多 120 条，防止 zip bomb 与目录穿越。
+- **解压**：使用 Apache Commons Compress 自行解析 ZIP，避开部分电视厂商系统对条目名的严格校验（小米电视会报 `restricted zip entry name`）；自动识别 UTF-8 / GBK 编码，只读取 `.js`，单条 ≤ 4 MB、整包 ≤ 24 MB、最多 120 条，防止 zip bomb 与目录穿越。
 - **安装**：脚本按文件夹分类展示，打开详情后逐个安装；安装按钮 3 秒内二次确认，写入 `files/lx_user_js` 并自动重载 LX 引擎。失败原因（网络、哈希、写入、重载）会显示在胶囊提示中。
 - **缓存与限流**：最近一次 Release 清单与 zip 会缓存，GitHub API 失败时可回退上次清单；匿名接口每小时 60 次，刷新过于频繁会提示限流。
 - 本仓库不分发音源脚本；市场里的脚本由第三方发布，安装前请确认来源可信。
@@ -67,11 +67,11 @@
 3. 把 APK 放到稳定的 HTTPS 地址（GitHub Release 资产或自己的静态站点），编辑根目录 `update.json` 的六个字段并提交。
 4. 客户端默认从 `https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json` 读取；jsDelivr 有缓存，必要时用 raw.githubusercontent.com 或构建时覆盖清单地址：
    `./gradlew :app:assembleRelease -Ptvmusic.updateManifest=https://example.com/update.json`
-5. 本地联调可用 `-Ptvmusic.versionCode=12 -Ptvmusic.versionName=0.10.1-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
+5. 本地联调可用 `-Ptvmusic.versionCode=13 -Ptvmusic.versionName=0.10.2-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
 
-0.10.0 已公开发布：`update.json` 指向 GitHub Release 的公开包（不含 `音源/` 脚本，SHA-256 与大小已写入清单）。本机的 0.10.0 自用包包含脚本，按仓库规则不上传公开渠道；通过“设置 → 更新”下载安装的是公开包，覆盖升级会保留应用数据与已导入到 `files/lx_user_js` 的音源脚本。0.9.1 及更早版本可在线升级到 0.10.0，已经安装 0.10.0 的会显示已是最新。
+0.10.1 已公开发布：`update.json` 指向 GitHub Release 的公开包（不含 `音源/` 脚本，SHA-256 与大小已写入清单）。本机的 0.10.1 自用包包含脚本，按仓库规则不上传公开渠道；覆盖升级会保留应用数据与已导入到 `files/lx_user_js` 的音源脚本。0.10.0 及更早版本请先手动安装一次公开包（旧更新器可能受 CDN 缓存影响），安装后后续版本可正常在线升级。
 
-公开包地址：<https://github.com/Zxxy326/TV-Music/releases/tag/v0.10.0-m3b2>
+公开包地址：<https://github.com/Zxxy326/TV-Music/releases/tag/v0.10.1-m3b2>
 
 ## M3b1 已实现（下载与离线库）
 
@@ -269,7 +269,7 @@ app/src/main/java/tv/music/player/
 - 音源导入通过系统文件选择器选择 `.js`；音源市场已接入，但 URL 直接安装、启停排序与卸载仍未实现。源测试使用 QQ 元数据，部分源无法跨源解析属于预期结果。
 - MediaSession 后台播放与通知栏已在模拟器验证；演示曲目没有真实 URL，不产生媒体通知。Android 13+ 需授予通知权限。
 - Release 使用 debug 签名、R8 关闭，包体偏大；4K 缩放逻辑已接入，尚未在 4K 真机逐项验收。
-- 已在 1080p 横屏模拟器（SwiftShader 软件渲染）验证交互、导入、分页、媒体键，手机伴侣的配对、输入同步、队列点播、暂停与 seek，下载、重启后索引恢复、飞行模式离线播放和 MENU 二次确认删除，在线更新的检查、下载、SHA-256/签名校验与系统安装器覆盖升级（含 0.9.0 → 0.9.1 公开包实机升级），设备音乐扫描与 `content://` 播放，音源市场从真实 GitHub Release 下载 V261020、按 SHA-256 校验、解压 GBK 文件名并安装/重载，网易云公开歌单读取与整单播放，账号二维码生成与等待扫码状态，以及 SMB 配置导入、凭据加密与连接失败提示；SMB 流式播放、网易云真实账号登录与 QQ 歌单尚无真机验收，模拟器帧率数据不代表真机。
+- 已在 1080p 横屏模拟器（SwiftShader 软件渲染）验证交互、导入、分页、媒体键，手机伴侣的配对、输入同步、队列点播、暂停与 seek，下载、重启后索引恢复、飞行模式离线播放和 MENU 二次确认删除，在线更新的检查、下载、SHA-256/签名校验与系统安装器覆盖升级（含 0.9.0 → 0.9.1 公开包实机升级），设备音乐扫描与 `content://` 播放，音源市场从真实 GitHub Release 下载 V261020/V261017、按 SHA-256 校验、解压 GBK 文件名并安装/重载（含小米电视会触发的 restricted zip entry name 兼容修复），网易云公开歌单读取与整单播放，账号二维码生成与等待扫码状态，以及 SMB 配置导入、凭据加密与连接失败提示；SMB 流式播放、网易云真实账号登录与 QQ 歌单尚无真机验收，模拟器帧率数据不代表真机。
 
 ## 版权与许可
 

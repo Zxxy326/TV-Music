@@ -44,6 +44,26 @@ core/lx 下的 LX QuickJS 引擎、HTTP 客户端与脚本存储移植自该项�
   Apache License 2.0
   https://square.github.io/okhttp/
 
+- Apache Commons Compress
+  Copyright The Apache Software Foundation
+  Apache License 2.0
+  https://commons.apache.org/proper/commons-compress/
+
+- ZXing Core（二维码生成/解析）
+  Copyright ZXing Authors
+  Apache License 2.0
+  https://github.com/zxing/zxing
+
+- jcifs-ng（SMB2/3 客户端）
+  Copyright AgNO3 GmbH & Co. KG
+  LGPL-2.1
+  https://github.com/AgNO3/jcifs-ng
+
+- androidx.documentfile（SAF 目录访问）
+  Copyright The Android Open Source Project
+  Apache License 2.0
+  https://developer.android.com/jetpack/androidx/releases/documentfile
+
 - Material Icons Extended（图片资源）
   Copyright Google LLC
   Apache License 2.0

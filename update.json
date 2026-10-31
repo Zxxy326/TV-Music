@@ -1,8 +1,8 @@
 {
-  "versionCode": 11,
-  "versionName": "0.10.0",
-  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.10.0-m3b2/TV-Music-0.10.0-public.apk",
-  "sha256": "03ee8bbd8b96cb35b2a6bfcca10c90e0d20d9b5d1f4ffb78bf111d71aea40434",
-  "sizeBytes": 63546296,
-  "notes": "M3b2：网易云扫码登录、Cookie 加密导入与我的歌单；音源市场改为 GitHub Release 音源包下载与 SHA-256 校验。公开包不含音源脚本，音源请在设置中自行安装。"
+  "versionCode": 12,
+  "versionName": "0.10.1",
+  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.10.1-m3b2/TV-Music-0.10.1-public.apk",
+  "sha256": "0005509798849834def6c474e8e9ecc642edc4de2657826691ee4d0e77f880f5",
+  "sizeBytes": 64365496,
+  "notes": "0.10.1：修复部分电视（小米）下载音源包后报 restricted zip entry name，改用 Commons Compress 解析 ZIP；清理 Release 说明中的 HTML 标签。"
 }
