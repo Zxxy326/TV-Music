@@ -1,8 +1,8 @@
 {
-  "versionCode": 9,
-  "versionName": "0.9.0",
-  "apkUrl": "",
-  "sha256": "",
-  "sizeBytes": 0,
-  "notes": "在线更新已接入。发布新版本时，请更新 versionCode、versionName、apkUrl、sha256 与 sizeBytes；APK 必须与本应用使用同一签名。"
+  "versionCode": 10,
+  "versionName": "0.9.1",
+  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.9.1-m4/TV-Music-0.9.1-public.apk",
+  "sha256": "c15f2d52dc8a1e605610b4bed4e2bae7285ab041d0422085aa338accc79c6baa",
+  "sizeBytes": 63366072,
+  "notes": "M4：本地库（设备歌曲、文件夹、SMB 共享）与音源市场。公开包不含音源脚本，音源请在设置中自行导入。"
 }

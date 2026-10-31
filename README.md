@@ -52,7 +52,9 @@
    `./gradlew :app:assembleRelease -Ptvmusic.updateManifest=https://example.com/update.json`
 5. 本地联调可用 `-Ptvmusic.versionCode=11 -Ptvmusic.versionName=0.9.2-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
 
-仓库里的 `update.json` 仍指向已发布的 0.9.0（`apkUrl` 为空），所以 0.9.1 检查只会得到“已是最新”。本机的 0.9.1 安装包包含自用音源脚本，按仓库规则不上传公开渠道；需要公开发布时，请用不含脚本的包重新确定版本号并更新清单。
+0.9.1 已公开发布：`update.json` 指向 GitHub Release 的公开包（不含 `音源/` 脚本，SHA-256 与大小已写入清单）。本机的 0.9.1 自用包包含脚本，按仓库规则不上传公开渠道；通过“设置 → 更新”下载安装的是公开包，覆盖升级会保留应用数据与已导入到 `files/lx_user_js` 的音源脚本。0.9.0 及更早版本可在线升级到 0.9.1，已经安装 0.9.1 的会显示已是最新。
+
+公开包地址：<https://github.com/Zxxy326/TV-Music/releases/tag/v0.9.1-m4>
 
 ## M3b1 已实现（下载与离线库）
 
@@ -155,6 +157,9 @@
 # 可选：把自用音源放到仓库根目录 音源/*.js，构建时会自动注入
 ./gradlew :app:assembleDebug
 ./gradlew :app:assembleRelease
+
+# 公开渠道使用：不注入任何音源脚本（同时清空 assets/lx）
+./gradlew :app:assembleRelease -Ptvmusic.bundleLocalSources=false
 ```
 
 产物：
@@ -219,7 +224,7 @@ app/src/main/java/tv/music/player/
 
 - 更新必须由用户在系统安装器里确认，不能静默安装；首次需要允许本应用“安装未知应用”。个别电视盒子没有可用的安装器界面，会提示无法启动。
 - 更新包必须与当前安装包使用同一签名。以后若从 debug 签名切换到正式 keystore，旧版本无法在线覆盖升级，只能卸载重装（应用数据会丢失）。
-- 清单与 APK 依赖 jsDelivr / GitHub 或自建静态站点；jsDelivr 缓存可能延迟。只做整包更新，没有增量更新；正式版拒绝 HTTP 地址。
+- 清单与 APK 依赖 jsDelivr / GitHub 或自建静态站点；jsDelivr 缓存可能延迟。只做整包更新，没有增量更新；正式版拒绝 HTTP 地址。GitHub Release 的 APK 下载在部分网络环境可能被阻断或很慢，此时需要代理或手动下载公开包安装。
 - 更新下载随 App 进程存活，没有 WorkManager/前台下载服务；进程被杀会中断下载。已完成的安装包会保留，重新进入更新页检查后可直接安装。
 - 公开分发的 APK 不要包含 `音源/` 脚本（本仓库规则）；`update.json` 中的哈希与版本号必须与实际包一致，否则客户端会拒绝下载或校验失败。
 

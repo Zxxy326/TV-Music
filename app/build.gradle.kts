@@ -101,11 +101,21 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
+val bundleLocalSources = providers.gradleProperty("tvmusic.bundleLocalSources")
+    .map(String::toBoolean)
+    .orElse(true)
 val lxSourceDir = rootProject.file("音源")
+val lxAssetsDir = layout.projectDirectory.dir("src/main/assets/lx")
 val syncLxScripts = tasks.register<Copy>("syncLxScripts") {
+    onlyIf { bundleLocalSources.get() }
     if (lxSourceDir.isDirectory) {
         from(lxSourceDir) { include("*.js") }
     }
-    into(layout.projectDirectory.dir("src/main/assets/lx"))
+    into(lxAssetsDir)
 }
-tasks.named("preBuild").configure { dependsOn(syncLxScripts) }
+val cleanLxAssets = tasks.register<Delete>("cleanLxAssets") {
+    delete(lxAssetsDir)
+}
+tasks.named("preBuild").configure {
+    if (bundleLocalSources.get()) dependsOn(syncLxScripts) else dependsOn(cleanLxAssets)
+}
