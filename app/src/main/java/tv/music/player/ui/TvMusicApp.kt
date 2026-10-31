@@ -107,6 +107,7 @@ fun TvMusicApp() {
                         smbConfig = container.smbConfig,
                         smbRepository = container.smbRepository,
                         sourceMarket = container.sourceMarket,
+                        account = container.account,
                         downloads = container.downloads,
                         updates = container.updates,
                         lxEngine = container.lxEngine,

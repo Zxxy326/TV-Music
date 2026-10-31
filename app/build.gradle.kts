@@ -15,16 +15,12 @@ android {
         applicationId = "tv.music.player"
         minSdk = 28
         targetSdk = 36
-        versionCode = providers.gradleProperty("tvmusic.versionCode").orNull?.toInt() ?: 10
-        versionName = providers.gradleProperty("tvmusic.versionName").orNull ?: "0.9.1"
+        versionCode = providers.gradleProperty("tvmusic.versionCode").orNull?.toInt() ?: 11
+        versionName = providers.gradleProperty("tvmusic.versionName").orNull ?: "0.10.0"
         val manifestUrl = providers.gradleProperty("tvmusic.updateManifest")
             .orElse("https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json")
             .get()
         buildConfigField("String", "UPDATE_MANIFEST_URL", "\"${manifestUrl.replace("\"", "\\\"")}\"")
-        val marketUrl = providers.gradleProperty("tvmusic.sourceMarket")
-            .orElse("https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/sources.json")
-            .get()
-        buildConfigField("String", "SOURCE_MARKET_URL", "\"${marketUrl.replace("\"", "\\\"")}\"")
     }
 
     buildTypes {

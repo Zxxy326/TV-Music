@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import kotlinx.coroutines.launch
+import tv.music.player.core.account.AccountStore
 import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
 import tv.music.player.core.download.DownloadStore
@@ -72,6 +73,7 @@ class AppContainer(context: Context) {
         onTrackStarted = library::recordPlayed,
         smbFactory = smbFactory,
     )
+    val account = AccountStore(appContext)
     val companionBridge = CompanionBridge()
     val companion = CompanionServer(appContext, playback, companionBridge)
     val updates = UpdateStore(appContext)

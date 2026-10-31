@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import tv.music.player.core.companion.CompanionBridge
 import tv.music.player.core.companion.CompanionServer
+import tv.music.player.core.account.AccountStore
 import tv.music.player.core.download.DownloadStore
 import tv.music.player.core.library.LibraryStore
 import tv.music.player.core.local.LocalLibraryStore
@@ -28,12 +29,15 @@ import tv.music.player.core.search.SearchHistoryStore
 import tv.music.player.core.settings.AppSettings
 import tv.music.player.core.settings.SettingsRepository
 import tv.music.player.core.update.UpdateStore
+import tv.music.player.ui.account.AccountPlaylistScreen
+import tv.music.player.ui.account.AccountScreen
 import tv.music.player.ui.home.HomeScreen
 import tv.music.player.ui.library.DownloadsScreen
 import tv.music.player.ui.local.DeviceMusicScreen
 import tv.music.player.ui.local.LocalHubScreen
 import tv.music.player.ui.local.SmbScreen
 import tv.music.player.ui.source.SourceMarketScreen
+import tv.music.player.ui.source.SourceReleaseScreen
 import tv.music.player.ui.library.LibraryScreen
 import tv.music.player.ui.player.PlayerScreen
 import tv.music.player.ui.search.SearchScreen
@@ -55,6 +59,7 @@ fun TvNavHost(
     smbConfig: SmbConfigStore,
     smbRepository: SmbRepository,
     sourceMarket: SourceMarketStore,
+    account: AccountStore,
     downloads: DownloadStore,
     updates: UpdateStore,
     lxEngine: LxJsEngine,
@@ -143,9 +148,40 @@ fun TvNavHost(
                 navController = navController,
             )
         }
+        composable(TvRoute.Account.route) {
+            AccountScreen(
+                store = account,
+                onOpenPlaylist = { playlist ->
+                    navController.navigate(TvRoute.AccountPlaylist.of(playlist.id))
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = TvRoute.AccountPlaylist.route,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        ) { entry ->
+            AccountPlaylistScreen(
+                store = account,
+                playback = playback,
+                playlistId = entry.arguments?.getString("id").orEmpty(),
+                navController = navController,
+            )
+        }
         composable(TvRoute.SourceMarket.route) {
             SourceMarketScreen(
                 store = sourceMarket,
+                onOpenRelease = { tag -> navController.navigate(TvRoute.MarketRelease.of(tag)) },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = TvRoute.MarketRelease.route,
+            arguments = listOf(navArgument("tag") { type = NavType.StringType }),
+        ) { entry ->
+            SourceReleaseScreen(
+                store = sourceMarket,
+                tag = entry.arguments?.getString("tag").orEmpty(),
                 onBack = { navController.popBackStack() },
             )
         }
@@ -176,6 +212,7 @@ fun TvNavHost(
                 onOpenDownloads = { navController.navigate(TvRoute.Downloads.route) },
                 onOpenSourceMarket = { navController.navigate(TvRoute.SourceMarket.route) },
                 onOpenSmb = { navController.navigate(TvRoute.Smb.route) },
+                onOpenAccount = { navController.navigate(TvRoute.Account.route) },
                 onBack = { navController.popBackStack() },
             )
         }

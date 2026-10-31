@@ -216,6 +216,7 @@ class UpdateStore(context: Context) {
         val urls = manifestUrls()
         if (urls.isEmpty()) error("更新地址未配置或不是 HTTPS")
         val errors = mutableListOf<String>()
+        var best: UpdateInfo? = null
         for (raw in urls) {
             val base = raw.toHttpUrlOrNull() ?: continue
             val requestUrl = base.newBuilder()
@@ -233,7 +234,12 @@ class UpdateStore(context: Context) {
                         errors += "${base.host}: HTTP ${response.code}"
                         return@use
                     }
-                    return parseManifest(response.body.string())
+                    val info = runCatching { parseManifest(response.body.string()) }
+                        .onFailure { errors += "${base.host}: 清单格式错误" }
+                        .getOrNull()
+                    if (info != null && (best == null || info.versionCode > best!!.versionCode)) {
+                        best = info
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -241,7 +247,9 @@ class UpdateStore(context: Context) {
                 errors += "${base.host}: ${t.message ?: "请求失败"}"
             }
         }
-        throw IllegalStateException(errors.joinToString("；").ifBlank { "没有可用的更新地址" })
+        return best ?: throw IllegalStateException(
+            errors.joinToString("；").ifBlank { "没有可用的更新地址" }
+        )
     }
 
     private fun parseManifest(text: String): UpdateInfo {

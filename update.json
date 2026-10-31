@@ -1,8 +1,8 @@
 {
-  "versionCode": 10,
-  "versionName": "0.9.1",
-  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.9.1-m4/TV-Music-0.9.1-public.apk",
-  "sha256": "c15f2d52dc8a1e605610b4bed4e2bae7285ab041d0422085aa338accc79c6baa",
-  "sizeBytes": 63366072,
-  "notes": "M4：本地库（设备歌曲、文件夹、SMB 共享）与音源市场。公开包不含音源脚本，音源请在设置中自行导入。"
+  "versionCode": 11,
+  "versionName": "0.10.0",
+  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.10.0-m3b2/TV-Music-0.10.0-public.apk",
+  "sha256": "03ee8bbd8b96cb35b2a6bfcca10c90e0d20d9b5d1f4ffb78bf111d71aea40434",
+  "sizeBytes": 63546296,
+  "notes": "M3b2：网易云扫码登录、Cookie 加密导入与我的歌单；音源市场改为 GitHub Release 音源包下载与 SHA-256 校验。公开包不含音源脚本，音源请在设置中自行安装。"
 }

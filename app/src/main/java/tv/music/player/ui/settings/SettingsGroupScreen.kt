@@ -113,6 +113,7 @@ fun SettingsGroupScreen(
     onOpenDownloads: () -> Unit,
     onOpenSourceMarket: () -> Unit,
     onOpenSmb: () -> Unit,
+    onOpenAccount: () -> Unit,
     onBack: () -> Unit,
 ) {
     val info = SettingsGroups.byId(groupId)
@@ -134,6 +135,7 @@ fun SettingsGroupScreen(
         onOpenDownloads = onOpenDownloads,
         onOpenSourceMarket = onOpenSourceMarket,
         onOpenSmb = onOpenSmb,
+        onOpenAccount = onOpenAccount,
     )
     val firstFocusKey = when (groupId) {
         "companion" -> "companion:toggle"
@@ -329,6 +331,7 @@ private fun buildEntries(
     onOpenDownloads: () -> Unit,
     onOpenSourceMarket: () -> Unit,
     onOpenSmb: () -> Unit,
+    onOpenAccount: () -> Unit,
 ): List<SettingEntry> {
 
     fun save(message: String, block: suspend () -> Unit) {
@@ -514,25 +517,25 @@ private fun buildEntries(
 
         "account" -> listOf(
             SettingEntry.Action(
-                key = "qq",
-                title = "QQ 音乐",
-                subtitle = "TV 显示二维码，手机扫码确认",
-                value = "扫码 · M3b2",
-                onClick = { capsule.show("QQ 扫码登录将在 M3b2 接入") },
-            ),
-            SettingEntry.Action(
                 key = "netease",
                 title = "网易云音乐",
-                subtitle = "unikey 轮询登录，写 Cookie 到加密存储",
-                value = "扫码 · M3b2",
-                onClick = { capsule.show("网易云扫码登录将在 M3b2 接入") },
+                subtitle = "扫码登录、Cookie 导入与我的歌单",
+                value = "已接入",
+                onClick = onOpenAccount,
+            ),
+            SettingEntry.Action(
+                key = "qq",
+                title = "QQ 音乐",
+                subtitle = "Cookie 导入；扫码与歌单接口待验证",
+                value = "Cookie",
+                onClick = onOpenAccount,
             ),
             SettingEntry.Action(
                 key = "cookie",
-                title = "Cookie 导入",
-                subtitle = "U 盘 cookie.txt 或手机伴侣粘贴",
-                value = "M3b2",
-                onClick = { capsule.show("Cookie 导入将在 M3b2 接入") },
+                title = "Cookie 文件",
+                subtitle = "U 盘 cookie.json / cookie.txt，凭据加密保存",
+                value = "导入",
+                onClick = onOpenAccount,
             ),
         )
 
@@ -567,8 +570,8 @@ private fun buildEntries(
             SettingEntry.Info(
                 key = "version",
                 title = "版本",
-                value = "${BuildConfig.VERSION_NAME} · M4",
-                subtitle = "本地库 · 音源市场 · 在线更新",
+                value = "${BuildConfig.VERSION_NAME} · M3b2",
+                subtitle = "账号歌单 · 本地库 · 音源市场",
             ),
             SettingEntry.Info(
                 key = "scale",
