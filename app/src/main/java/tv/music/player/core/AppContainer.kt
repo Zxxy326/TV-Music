@@ -9,6 +9,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
@@ -104,6 +105,10 @@ class AppContainer(context: Context) {
             settings.settings.collectLatest { current ->
                 if (current.companionEnabled) companion.start() else companion.stop()
             }
+        }
+        appScope.launch {
+            delay(2_500L)
+            updates.autoCheckOnLaunch()
         }
     }
 

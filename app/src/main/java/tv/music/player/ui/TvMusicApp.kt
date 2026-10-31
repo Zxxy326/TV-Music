@@ -17,7 +17,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -59,6 +61,15 @@ fun TvMusicApp() {
 
     val navController = rememberNavController()
     val capsuleHost = rememberCapsuleHostState()
+    val availableUpdate by container.updates.availableUpdate.collectAsStateWithLifecycle()
+    var announcedUpdateCode by remember { mutableStateOf(0L) }
+    LaunchedEffect(availableUpdate?.versionCode) {
+        val info = availableUpdate ?: return@LaunchedEffect
+        if (info.versionCode > announcedUpdateCode) {
+            announcedUpdateCode = info.versionCode
+            capsuleHost.show("发现新版本 ${info.versionName} · 设置 → 更新 中下载", 8_000L)
+        }
+    }
     LaunchedEffect(container.playback) {
         container.playback.errors.collect { capsuleHost.show(it) }
     }

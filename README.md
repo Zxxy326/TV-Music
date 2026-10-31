@@ -2,7 +2,7 @@
 
 面向 Android TV / 电视盒子的音乐播放器，遥控器优先，大屏 960×540dp 基准设计，支持 4K 缩放与三档字号。
 
-当前版本 **0.10.1 · M3b2**：新增**账号与歌单**——网易云扫码登录、Cookie 加密导入、我的歌单与整单播放；同时把**音源市场**移植为像素播放器的 GitHub Release 方案：拉取音源 zip、镜像下载、按 GitHub SHA-256 校验后逐个安装脚本。M4 的本地库/SMB、M3c 的在线更新、M3b1 的下载/离线库、M3a 的手机伴侣、M2 的逐字歌词与 M1 的搜索/后台播放继续保留。
+当前版本 **0.10.2 · M3b2**：新增**账号与歌单**——网易云扫码登录、Cookie 加密导入、我的歌单与整单播放；同时把**音源市场**移植为像素播放器的 GitHub Release 方案：拉取音源 zip、镜像下载、按 GitHub SHA-256 校验后逐个安装脚本。M4 的本地库/SMB、M3c 的在线更新、M3b1 的下载/离线库、M3a 的手机伴侣、M2 的逐字歌词与 M1 的搜索/后台播放继续保留。
 
 > 本仓库不包含任何音源脚本、音频或歌词文件。本地构建会把用户放在仓库根目录 `音源/` 下的 `*.js` 注入 APK 供自用；开源构建不注入脚本。README 末尾有版权与许可说明。
 
@@ -56,7 +56,8 @@
 
 - **入口**：设置 → 更新。进入分组会自动检查一次，也可随时点“检查更新”。设置卡显示当前版本、状态、更新说明、包体大小与下载进度。
 - **清单**：`update.json` 提供 `versionCode / versionName / apkUrl / sha256 / sizeBytes / notes`；只有 `versionCode` 大于当前版本才会提示更新。默认地址为 jsDelivr 镜像，失败时依次回退到 raw.githubusercontent.com 与 cdn.jsdelivr.net；请求带短时缓存参数。
-- **下载**：显示百分比、已下载/总大小，可取消；下载到应用私有 `files/updates/`，完成后校验 SHA-256、APK 包名、`versionCode` 必须更高、签名必须与当前应用一致，任一失败都会删除安装包并显示原因。
+- **下载**：显示百分比、已下载/总大小，可取消；依次尝试 gh-proxy、ghproxy 与 GitHub 直链，单通道超时自动切换；下载到应用私有 `files/updates/`，完成后校验 SHA-256、APK 包名、`versionCode` 必须更高、签名必须与当前应用一致，任一失败都会删除安装包并显示原因。
+- **自动检查**：应用启动后约 2.5 秒后台检查更新（30 分钟节流），有新版本会显示系统通知和首页顶部提示；点击通知或提示后到“设置 → 更新”下载。
 - **安装**：通过 FileProvider 把 APK 交给系统安装器（`ACTION_VIEW` + `application/vnd.android.package-archive`），首次需要允许本应用“安装未知应用”；未授权时自动打开该设置页，返回后再点“安装更新”。应用不会静默安装。
 - **安全**：正式版只接受 HTTPS 清单与安装包（debug 构建才允许 HTTP，便于本地验证）；安装包存储在应用私有目录，FileProvider 只暴露 `updates/`；签名校验保证不能被其他签名的 APK 覆盖。
 
@@ -67,11 +68,11 @@
 3. 把 APK 放到稳定的 HTTPS 地址（GitHub Release 资产或自己的静态站点），编辑根目录 `update.json` 的六个字段并提交。
 4. 客户端默认从 `https://testingcf.jsdelivr.net/gh/Zxxy326/TV-Music@main/update.json` 读取；jsDelivr 有缓存，必要时用 raw.githubusercontent.com 或构建时覆盖清单地址：
    `./gradlew :app:assembleRelease -Ptvmusic.updateManifest=https://example.com/update.json`
-5. 本地联调可用 `-Ptvmusic.versionCode=13 -Ptvmusic.versionName=0.10.2-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
+5. 本地联调可用 `-Ptvmusic.versionCode=14 -Ptvmusic.versionName=0.10.3-test` 构建一个更高版本的同签名 APK，再用本机 HTTP 服务与 debug 包验证完整升级。
 
-0.10.1 已公开发布：`update.json` 指向 GitHub Release 的公开包（不含 `音源/` 脚本，SHA-256 与大小已写入清单）。本机的 0.10.1 自用包包含脚本，按仓库规则不上传公开渠道；覆盖升级会保留应用数据与已导入到 `files/lx_user_js` 的音源脚本。0.10.0 及更早版本请先手动安装一次公开包（旧更新器可能受 CDN 缓存影响），安装后后续版本可正常在线升级。
+0.10.2 已公开发布：`update.json` 指向 GitHub Release 的公开包（不含 `音源/` 脚本，SHA-256 与大小已写入清单），APK 下载地址使用 gh-proxy 镜像并保留 GitHub 直链兜底。0.10.2 起 APK 下载会依次尝试 gh-proxy、ghproxy 与 GitHub 直链，超时或断线会自动换通道；启动后自动静默检查更新，有新版本会发通知并在首页顶部提示。0.10.1 及更早版本请先手动安装一次公开包（旧更新器只有单一下载地址），之后可正常在线升级。
 
-公开包地址：<https://github.com/Zxxy326/TV-Music/releases/tag/v0.10.1-m3b2>
+公开包地址：<https://github.com/Zxxy326/TV-Music/releases/tag/v0.10.2-m3b2>
 
 ## M3b1 已实现（下载与离线库）
 

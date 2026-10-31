@@ -1,8 +1,8 @@
 {
-  "versionCode": 12,
-  "versionName": "0.10.1",
-  "apkUrl": "https://github.com/Zxxy326/TV-Music/releases/download/v0.10.1-m3b2/TV-Music-0.10.1-public.apk",
-  "sha256": "0005509798849834def6c474e8e9ecc642edc4de2657826691ee4d0e77f880f5",
-  "sizeBytes": 64365496,
-  "notes": "0.10.1：修复部分电视（小米）下载音源包后报 restricted zip entry name，改用 Commons Compress 解析 ZIP；清理 Release 说明中的 HTML 标签。"
+  "versionCode": 13,
+  "versionName": "0.10.2",
+  "apkUrl": "https://gh-proxy.com/https://github.com/Zxxy326/TV-Music/releases/download/v0.10.2-m3b2/TV-Music-0.10.2-public.apk",
+  "sha256": "36947398fa9391f7f0cf7cb87a1d103797adbf530a60cbae4ad47b3abc95de63",
+  "sizeBytes": 64381880,
+  "notes": "0.10.2：更新下载支持 gh-proxy / ghproxy / GitHub 多通道自动切换；启动后自动后台检查更新，有新版本会发通知并在首页提示。"
 }

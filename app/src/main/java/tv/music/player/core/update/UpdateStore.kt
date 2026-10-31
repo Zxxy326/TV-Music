@@ -1,6 +1,11 @@
 package tv.music.player.core.update
 
+import android.Manifest
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
@@ -10,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +34,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import tv.music.player.BuildConfig
+import tv.music.player.MainActivity
 import java.io.File
 import java.security.MessageDigest
 import java.util.Locale
@@ -80,16 +87,19 @@ class UpdateStore(context: Context) {
     private val pm = appContext.packageManager
     private val dir = File(appContext.filesDir, "updates").also { it.mkdirs() }
     private val client = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val prefs = appContext.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
+    private val _availableUpdate = MutableStateFlow<UpdateInfo?>(null)
+    val availableUpdate: StateFlow<UpdateInfo?> = _availableUpdate.asStateFlow()
 
     val currentVersionName: String = BuildConfig.VERSION_NAME
     val currentVersionCode: Long = BuildConfig.VERSION_CODE.toLong()
@@ -98,6 +108,10 @@ class UpdateStore(context: Context) {
 
     init {
         cleanStaleFiles()
+        readPendingUpdate()?.let { info ->
+            _availableUpdate.value = info
+            _state.value = UpdateState.Available(info)
+        }
     }
 
     fun check() {
@@ -116,6 +130,111 @@ class UpdateStore(context: Context) {
         }
     }
 
+    /** 启动时静默检查，有新版本才通知，不把设置页状态改成失败。 */
+    fun autoCheckOnLaunch() {
+        if (job?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (now - prefs.getLong(KEY_LAST_AUTO_CHECK, 0L) < AUTO_CHECK_INTERVAL_MS) return
+        prefs.edit().putLong(KEY_LAST_AUTO_CHECK, now).apply()
+        job = scope.launch {
+            try {
+                val info = fetchManifest()
+                if (info.versionCode > currentVersionCode) {
+                    _availableUpdate.value = info
+                    savePendingUpdate(info)
+                    if (_state.value is UpdateState.Idle) {
+                        _state.value = UpdateState.Available(info)
+                    }
+                    notifyAvailable(info)
+                } else {
+                    _availableUpdate.value = null
+                    clearPendingUpdate()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Log.i(TAG, "auto update check skipped: ${t.message ?: "network unavailable"}")
+            }
+        }
+    }
+
+    private fun savePendingUpdate(info: UpdateInfo) {
+        prefs.edit()
+            .putString(
+                KEY_PENDING_UPDATE,
+                JSONObject()
+                    .put("versionCode", info.versionCode)
+                    .put("versionName", info.versionName)
+                    .put("apkUrl", info.apkUrl)
+                    .put("sha256", info.sha256)
+                    .put("sizeBytes", info.sizeBytes)
+                    .put("notes", info.notes)
+                    .toString(),
+            )
+            .apply()
+    }
+
+    private fun readPendingUpdate(): UpdateInfo? = runCatching {
+        val raw = prefs.getString(KEY_PENDING_UPDATE, null) ?: return@runCatching null
+        val json = JSONObject(raw)
+        val info = UpdateInfo(
+            versionCode = json.optLong("versionCode", 0L),
+            versionName = json.optString("versionName"),
+            apkUrl = json.optString("apkUrl"),
+            sha256 = json.optString("sha256"),
+            sizeBytes = json.optLong("sizeBytes", 0L),
+            notes = json.optString("notes"),
+        )
+        if (info.versionCode > currentVersionCode) info else null
+    }.getOrNull()
+
+    private fun clearPendingUpdate() {
+        prefs.edit().remove(KEY_PENDING_UPDATE).apply()
+    }
+
+    private fun notifyAvailable(info: UpdateInfo) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        if (prefs.getLong(KEY_LAST_NOTIFIED, 0L) >= info.versionCode) return
+        val manager = appContext.getSystemService(NotificationManager::class.java) ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "应用更新",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { description = "发现 TV Music 新版本时提醒" }
+            )
+        }
+        val intent = Intent(appContext, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val pending = PendingIntent.getActivity(
+            appContext,
+            NOTIFICATION_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(appContext, CHANNEL_ID)
+        } else {
+            Notification.Builder(appContext)
+        }
+        manager.notify(
+            NOTIFICATION_ID,
+            builder
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("TV Music 有新版本 ${info.versionName}")
+                .setContentText("打开应用 → 设置 → 更新，下载并安装")
+                .setContentIntent(pending)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .build()
+        )
+        prefs.edit().putLong(KEY_LAST_NOTIFIED, info.versionCode).apply()
+    }
+
     fun download() {
         if (job?.isActive == true) return
         val info = when (val current = _state.value) {
@@ -123,12 +242,12 @@ class UpdateStore(context: Context) {
             is UpdateState.Failed -> current.info
             else -> null
         } ?: return
-        val url = info.apkUrl.toHttpUrlOrNull()
-        if (url == null || !isAllowedUrl(info.apkUrl)) {
+        val urls = downloadCandidates(info)
+        if (urls.isEmpty()) {
             _state.value = UpdateState.Failed("安装包地址无效或不是 HTTPS", info)
             return
         }
-        job = scope.launch { downloadInternal(info, url) }
+        job = scope.launch { downloadInternal(info, urls) }
     }
 
     fun cancelDownload() {
@@ -184,6 +303,8 @@ class UpdateStore(context: Context) {
 
     private fun resolveManifest(info: UpdateInfo) {
         if (info.versionCode <= currentVersionCode) {
+            _availableUpdate.value = null
+            clearPendingUpdate()
             _state.value = UpdateState.UpToDate(currentVersionName)
             return
         }
@@ -209,7 +330,10 @@ class UpdateStore(context: Context) {
             }
             existing.delete()
         }
+        _availableUpdate.value = info
+        savePendingUpdate(info)
         _state.value = UpdateState.Available(info)
+        notifyAvailable(info)
     }
 
     private fun fetchManifest(): UpdateInfo {
@@ -267,57 +391,14 @@ class UpdateStore(context: Context) {
         )
     }
 
-    private suspend fun downloadInternal(info: UpdateInfo, url: HttpUrl) {
+    private suspend fun downloadInternal(info: UpdateInfo, urls: List<HttpUrl>) {
         val target = File(dir, fileName(info))
         val part = File(dir, "${target.nameWithoutExtension}.part.apk")
-        try {
+        val errors = mutableListOf<String>()
+        for ((index, url) in urls.withIndex()) {
             _state.value = UpdateState.Downloading(info, 0L, info.sizeBytes)
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", UA)
-                .build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    fail("下载失败：HTTP ${response.code}", info)
-                    return
-                }
-                val body = response.body
-                val total = body.contentLength().takeIf { it > 0L } ?: info.sizeBytes
-                val digest = MessageDigest.getInstance("SHA-256")
-                var read = 0L
-                var lastNotify = 0L
-                part.delete()
-                body.byteStream().use { input ->
-                    part.outputStream().use { output ->
-                        val buffer = ByteArray(128 * 1024)
-                        while (true) {
-                            currentCoroutineContext().ensureActive()
-                            val count = input.read(buffer)
-                            if (count <= 0) break
-                            output.write(buffer, 0, count)
-                            digest.update(buffer, 0, count)
-                            read += count
-                            val now = System.currentTimeMillis()
-                            if (now - lastNotify >= 250L) {
-                                lastNotify = now
-                                _state.value = UpdateState.Downloading(info, read, total)
-                            }
-                        }
-                    }
-                }
-                if (read < MIN_APK_BYTES) {
-                    fail("安装包内容过小，下载可能被拦截", info)
-                    return
-                }
-                if (info.sizeBytes > 0L && read != info.sizeBytes) {
-                    fail("安装包大小与清单不一致", info)
-                    return
-                }
-                val actual = digest.digest().joinToString("") { "%02x".format(it) }
-                if (!actual.equals(info.sha256, ignoreCase = true)) {
-                    fail("SHA-256 校验失败，安装包可能损坏或被篡改", info)
-                    return
-                }
+            try {
+                downloadFrom(info, url, part)
                 target.delete()
                 if (!part.renameTo(target)) {
                     part.copyTo(target, overwrite = true)
@@ -330,17 +411,86 @@ class UpdateStore(context: Context) {
                     return
                 }
                 keepOnly(target)
+                _availableUpdate.value = null
+                clearPendingUpdate()
                 _state.value = UpdateState.Downloaded(info, target, target.length())
-                Log.i(TAG, "update downloaded ${info.versionName} (${target.length()} bytes)")
+                Log.i(TAG, "update downloaded ${info.versionName} from ${url.host} (${target.length()} bytes)")
+                return
+            } catch (e: CancellationException) {
+                part.delete()
+                throw e
+            } catch (t: Throwable) {
+                part.delete()
+                val host = url.host
+                errors += "$host: ${t.message ?: "网络错误"}"
+                Log.w(TAG, "update mirror ${index + 1}/${urls.size} failed: $host: ${t.message}")
             }
-        } catch (e: CancellationException) {
-            part.delete()
-            throw e
-        } catch (t: Throwable) {
-            part.delete()
-            fail("下载失败：${t.message ?: "网络错误"}", info)
-            Log.w(TAG, "update download failed", t)
         }
+        fail(
+            "下载失败：${errors.distinct().joinToString("；").ifBlank { "所有下载通道均不可用" }}",
+            info,
+        )
+    }
+
+    private suspend fun downloadFrom(info: UpdateInfo, url: HttpUrl, part: File) {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", UA)
+            .header("Accept", "application/octet-stream,*/*")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}")
+            val body = response.body
+            val total = body.contentLength().takeIf { it > 0L } ?: info.sizeBytes
+            val digest = MessageDigest.getInstance("SHA-256")
+            var read = 0L
+            var lastNotify = 0L
+            part.delete()
+            body.byteStream().use { input ->
+                part.outputStream().use { output ->
+                    val buffer = ByteArray(128 * 1024)
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val count = input.read(buffer)
+                        if (count <= 0) break
+                        output.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        read += count
+                        val now = System.currentTimeMillis()
+                        if (now - lastNotify >= 250L) {
+                            lastNotify = now
+                            _state.value = UpdateState.Downloading(info, read, total)
+                        }
+                    }
+                }
+            }
+            if (read < MIN_APK_BYTES) {
+                throw IllegalStateException("安装包内容过小，下载可能被拦截")
+            }
+            if (info.sizeBytes > 0L && read != info.sizeBytes) {
+                throw IllegalStateException("安装包大小与清单不一致")
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            if (!actual.equals(info.sha256, ignoreCase = true)) {
+                throw IllegalStateException("SHA-256 校验失败，安装包可能损坏或被篡改")
+            }
+        }
+    }
+
+    private fun downloadCandidates(info: UpdateInfo): List<HttpUrl> {
+        val raw = info.apkUrl.trim()
+        val github = MIRROR_PREFIXES.firstOrNull { raw.startsWith(it) }
+            ?.let { raw.removePrefix(it) }
+            ?.takeIf { it.startsWith("https://github.com/") }
+            ?: raw.takeIf { it.startsWith("https://github.com/") }
+        val urls = if (github != null) {
+            MIRROR_PREFIXES.map { it + github } + github
+        } else {
+            listOf(raw)
+        }
+        return urls.filter { isAllowedUrl(it) }
+            .mapNotNull { it.toHttpUrlOrNull() }
+            .distinct()
     }
 
     @Suppress("DEPRECATION")
@@ -411,6 +561,16 @@ class UpdateStore(context: Context) {
         const val TAG = "TvMusicUpdate"
         const val FILE_PREFIX = "tv-music-"
         const val MIN_APK_BYTES = 1024L * 1024L
+        const val CHANNEL_ID = "tv_music_updates"
+        const val NOTIFICATION_ID = 7301
+        const val KEY_LAST_AUTO_CHECK = "last_auto_check"
+        const val KEY_PENDING_UPDATE = "pending_update"
+        const val KEY_LAST_NOTIFIED = "last_notified_version"
+        const val AUTO_CHECK_INTERVAL_MS = 30L * 60L * 1000L
+        val MIRROR_PREFIXES = listOf(
+            "https://gh-proxy.com/",
+            "https://ghproxy.net/",
+        )
         val UA = "TVMusic-Updater/1.0 (Android ${Build.VERSION.RELEASE})"
         val SHA256_PATTERN = Regex("^[a-f0-9]{64}$")
     }
